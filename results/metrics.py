@@ -1,5 +1,6 @@
 import numpy as np 
 import matplotlib.pyplot as plt 
+from results.utils import make_gt
 
 def proportions_of_added_pixels(dataset, history, config):
     """
@@ -20,5 +21,19 @@ def proportions_of_added_pixels(dataset, history, config):
     return  added_classes / n_px_per_class.reshape(-1,1)
 
 
+def accuracy_metrics(model, dataset, history, config):
+    accuracy_metrics = {
+        'OA': np.zeros(config['steps']),
+        'mIoU': np.zeros(config['steps']),
+        'cm': np.zeros((config['steps'], dataset.n_classes, dataset.n_classes))
+        }
 
-def overall_accuracy(dataset, history, config):
+    for step in range(1, config['steps']+1):
+        dataset.train_gt.gt, dataset.pool.gt = make_gt(dataset, history, config, step)
+        model.train(dataset, config)
+        metrics = model.evaluate(dataset, config)
+        for metric in accuracy_metrics:
+            accuracy_metrics[metric][step-1] = metrics[metric]
+
+    return accuracy_metrics
+

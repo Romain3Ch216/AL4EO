@@ -14,6 +14,8 @@ from tqdm import tqdm
 import copy
 from learning.utils import sliding_window, count_sliding_window, grouper
 from assets.utils import get_indices_as_array
+from sklearn.svm import SVC
+
 
 # Metrics
 from learning.metrics import mIou
@@ -203,12 +205,14 @@ class NeuralNetwork(Classifier):
             y_p = prediction.argmax(dim=1).cpu().numpy()
             y_pred.extend(list(y_p))
 
-        metrics = {'test_accuracy': acc_meter.value()[0],
-                   'test_IoU': mIou(y_true, y_pred, hyperparams['n_classes']),
-                   'test_kappa': cohen_kappa_score(y_true, y_pred)}
+        metrics = {'OA': acc_meter.value()[0],
+                   'mIoU': mIou(y_true, y_pred, hyperparams['n_classes']),
+                   'Kappa': cohen_kappa_score(y_true, y_pred),
+                   'cm': confusion_matrix(y_true, y_pred, labels=list(range(hyperparams['n_classes'])))
+                   }
 
 
-        return metrics, confusion_matrix(y_true, y_pred, labels=list(range(hyperparams['n_classes'])))
+        return metrics
 
 
 #===============================================================================
@@ -410,12 +414,13 @@ class SVM(Classifier):
         X_test, y_true = dataset.test_data
         y_pred = self.svm.predict(X_test)
 
-        metrics = {'test_accuracy': (y_pred == y_true).mean(),
-                   'test_IoU': mIou(y_true, y_pred, hyperparams['n_classes']),
-                   'test_kappa': cohen_kappa_score(y_true, y_pred)}
+        metrics = {'OA': (y_pred == y_true).mean(),
+                   'mIoU': mIou(y_true, y_pred, hyperparams['n_classes']),
+                   'Kappa': cohen_kappa_score(y_true, y_pred),
+                   'cm': confusion_matrix(y_true, y_pred, labels=list(range(hyperparams['n_classes'])))}
 
 
-        return metrics, confusion_matrix(y_true, y_pred, labels=list(range(hyperparams['n_classes'])))
+        return metrics
 
 #===============================================================================
 #                         Multi View Classifier
