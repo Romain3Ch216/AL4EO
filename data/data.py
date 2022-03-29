@@ -1,19 +1,27 @@
 import torch
-import torch.utils.data
-import numpy as np
-import seaborn as sns
-from data.sensors import get_sensor, Sensor
-import spectral.io.envi as envi
-import spectral
 import torch.utils.data as data
-import pdb
+import numpy as np
+import spectral
+import spectral.io.envi as envi
+
 from skimage.morphology import closing, disk
 from skimage.filters import sobel
 from sklearn.cluster import KMeans
-import time
+from sklearn.decomposition import PCA
+from skimage.segmentation import slic
+
+import seaborn as sns
+
+from data.sensors import get_sensor, Sensor
+
 
 class Subset:
+    """Generic class for a subset of the dataset"""
     def __init__(self, gt):
+        """
+        Args:
+            gt: 2D array of labels
+        """
         self.gt = gt
 
     @property
@@ -34,6 +42,7 @@ class Subset:
         return self.gt
 
 class Pool(Subset):
+    """Class for an unlabeled pool"""
     def __init__(self, gt):
         super().__init__(gt)
 
@@ -42,6 +51,7 @@ class Pool(Subset):
 
 
 class TrainGt(Subset):
+    """Class for the labeled pool / training dataset"""
     def __init__(self, gt):
         super().__init__(gt)
 
@@ -55,13 +65,13 @@ class Dataset:
     def __init__(self, hyperparams, img_pth, gt_pth, palette, label_values, ignored_labels, sensor):
         """
         Args:
-            img_pth: path to .npy or .hdr hyperspectral image
-            gt_path: dict of paths to .npy ground truths
-            palette: list of the rgb colors
-            label_values: list of the classes labels
-            ignored_labels: list of labels (by id) to be ignored, by default only 0
-            which is unclassified
-            sensor: string of the sensor that acquired the data
+            hyperparams: dict, hyperparameters
+            img_pth: str, path to .npy or .hdr hyperspectral image
+            gt_path: dict, paths to .npy ground truths
+            palette: list, rgb colors
+            label_values: list, class labels
+            ignored_labels: list, class ids to ignore, by default [0]
+            sensor: string, the sensor that acquired the data
         """
 
         #Metadata
@@ -130,28 +140,20 @@ class Dataset:
         self.img = self.img
         self.IMG = np.copy(self.img)
 
+    def load_hdr(self, img_pth, gt_pth, normalization=True, copy=True):
+        raise NotImplementedError()
+
     def remove(self):
         for class_id in self.hyperparams['remove']:
             mask = self.train_gt() == class_id
             self.train_gt.gt[mask] = 0
             self.pool.gt[mask] = class_id
 
-
-    def MP(self):
-        # opened = np.zeros_like(self.img)
-        # selem = square(5)
-        #
-        # for band in range(self.img.shape[-1]):
-        #     img_ = self.img[:,:,band]
-        #     opened[:,:,band] = opening(img_, selem)
-
+    def EdgeDetection(self, threshold=0.1, radius=1):
         edges = sobel(np.mean(self.img, axis=-1))
-        mask = edges > 0.09
-        mask = closing(mask, disk(1))
+        mask = edges > threshold
+        mask = closing(mask, disk(radius))
         self.img[mask] = np.full_like(self.img[0,0,:], np.nan)
-        # opened[mask] = np.full_like(self.img[0,0,:], np.nan)
-        #
-        # self.img = opened
 
     def toy_example(self):
         self.img = self.img[:20, :20 ,:]
@@ -163,7 +165,6 @@ class Dataset:
         self.pool.gt = np.random.randint(0, self.n_classes, size=(20,20))
         mask = self.pool.gt != 0
         self.train_gt.gt[mask] = 0
-
 
     def load_data(self, data_, gt, split=True):
         data_ = HyperX(data_, gt, **self.hyperparams)
@@ -185,34 +186,40 @@ class Dataset:
         mask = gt != 0
         return self.img[mask]
 
-    def clustering(self, n_segments=20000):
-        img = np.mean(self.img, axis=-1)
-        from skimage.segmentation import slic
-        self.segmentation = slic(img, n_segments)
-        import matplotlib.pyplot as plt
-        plt.imshow(self.segmentation);plt.show()
+    def segmentation_(self, n_segments, compactness, apply_pca=True):
+        if apply_pca:
+            pca = PCA(n_components=3)
+            img = pca.fit_transform(self.img.reshape(-1, self.img.shape[-1]))
+            img = img.reshape(self.img.shape[0], self.img.shape[1], -1)
+        else:
+            img = np.mean(self.img, axis=-1)
+        mask = (self.pool.gt != 0)
+        mask = np.array(mask, dtype=np.bool)
+        self.segmentation = slic(img, n_segments=int(n_segments), compactness=int(compactness), mask=mask)
 
-    def segmented_pool(self, x_pool, y_pool):
+    def pool_segmentation_(self, x_pool, y_pool, queried_clusters=None, min_size=0):
         clusters = self.segmentation[self.pool.gt != 0]
-        conv = dict((i, j) for (i,j) in zip(np.unique(clusters), np.arange(len(np.unique(clusters)))))
-        clusters = np.vectorize(conv.get)(clusters)
 
-        cluster_ids = np.unique(clusters)
-        assert x_pool.shape[0] == clusters.shape[0]
-        spectra = np.zeros((len(cluster_ids), self.n_bands))
-        nb = 0
-        mask = np.zeros_like(cluster_ids)
-        for j, cluster_id in enumerate(cluster_ids):
-            if (clusters == cluster_id).sum() >= 10:
-                nb += 1
-                mask[j] = 1
-            spectra[list(cluster_ids).index(cluster_id),:] = np.mean(x_pool[clusters==cluster_id], axis=0)
+        if queried_clusters is None:
+            self.cluster_ids = np.unique(clusters)
+            self.spectra = np.zeros((len(self.cluster_ids), self.n_bands))
+            self.mask = np.ones_like(self.cluster_ids).astype(np.bool)
+            for j, cluster_id in enumerate(self.cluster_ids):
+                if (clusters == cluster_id).sum() < min_size:
+                    self.mask[list(self.cluster_ids).index(cluster_id)] = False
+                self.spectra[list(self.cluster_ids).index(cluster_id),:] = np.mean(x_pool[clusters==cluster_id], axis=0)
+        else:
+            for j, cluster_id in enumerate(queried_clusters):
+                cluster_id = self.cluster_ids[cluster_id]
+                if (clusters == cluster_id).sum() < min_size:
+                   self.mask[list(self.cluster_ids).index(cluster_id)] = False
+                self.spectra[list(self.cluster_ids).index(cluster_id),:] = np.mean(x_pool[clusters==cluster_id], axis=0)
 
-        mask = mask.astype(np.bool)
-        cluster_ids = cluster_ids[mask]
-        spectra = np.array(spectra, dtype=np.float32)
-        spectra = spectra[mask]
-        return spectra, cluster_ids, clusters
+        self.cluster_ids = self.cluster_ids[self.mask]
+        self.spectra = np.array(self.spectra, dtype=np.float32)
+        self.spectra = self.spectra[self.mask]
+        self.mask = self.mask[self.mask]
+        self.clusters = clusters
 
 
     @property
@@ -332,7 +339,7 @@ class Dataset:
         return sp
 
     def smooth_spectra(self,sigma):
-        """Apply a gaussian filter to the spectrums
+        """Apply a gaussian filter to the spectra
         Args:
             sigma: gaussian standard deviation
         """
@@ -353,7 +360,7 @@ class Dataset:
         self.img = np.asarray(res, dtype='float32')
 
 class HyperX(torch.utils.data.Dataset):
-    """ Generic class for a hyperspectral scene
+    """ Generic class for a hyperspectral dataset
         Credits to https://github.com/nshaud/DeepHyperX"""
 
     def __init__(self, data, gt, **hyperparams):
@@ -361,11 +368,10 @@ class HyperX(torch.utils.data.Dataset):
         Args:
             data: 3D hyperspectral image
             gt: 2D array of labels
-            patch_size: int, size of the spatial neighbourhood
-            center_pixel: bool, set to True to consider only the label of the
-                          center pixel
-            data_augmentation: bool, set to True to perform random flips
-            supervision: 'full' or 'semi' supervised algorithms
+            hyperparams : dict that includes:
+                dataset: str, name of the dataset
+                patch_size: int, size of the spatial neighbourhood
+                ignored_labels: list, class ids to ignore
         """
         super(HyperX, self).__init__()
         self.data = data
@@ -428,6 +434,5 @@ class HyperX(torch.utils.data.Dataset):
         if self.patch_size > 1:
             # Make 4D data ((Batch x) Planes x Channels x Width x Height)
             data = data.unsqueeze(0)
-
 
         return data, label
