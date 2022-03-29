@@ -49,9 +49,11 @@ class ActiveLearningFramework:
             self.restore()
 
     def step(self):
-        # pdb.set_trace()
         self.init_step()
         self.model.init_params()
+
+        f = open(self.config['res_dir'] + '/log.txt', 'a')
+        f.writelines(['step training query pool_size\n'])
 
         print('Training model...')
         start_time = time.time()
@@ -59,7 +61,7 @@ class ActiveLearningFramework:
         training_time = time.time() - start_time
 
         print('Computing heuristic...')
-        start_time = time.time()
+        start_query_time = time.time()
         train_data = self.dataset.train_data
         if self.config['benchmark']:# or self.config['opening']:
             pool = self.dataset.pool_data
@@ -70,37 +72,37 @@ class ActiveLearningFramework:
         else:
             print('Clustering...')
             pool = self.dataset.pool_data()
-            pool, cluster_ids, clusters = self.dataset.segmented_pool(pool[0], pool[1])
+            self.dataset.segmented_pool(pool[0], pool[1], self.queried_clusters)
+            pool, cluster_ids, clusters = self.dataset.spectra, self.dataset.cluster_ids, self.dataset.clusters
             pool = pool, np.arange(pool.shape[0])
             ranks = self.query(self.model, pool, train_data)
+            self.queried_clusters = ranks
             indices = []
             for rank in ranks :
                 cluster_id = cluster_ids[rank]
                 inds = np.where(cluster_id == clusters)
-                random_ind = np.random.randint(low=0, high=len(inds[0]), size=1)
+                random_ind = np.random.randint(low=0, high=len(inds[0]), size=int(self.config['n_random']))
                 indices.extend(inds[0][random_ind])
 
             indices = np.array(indices).astype(int)
             self.coordinates = self.dataset.pool.coordinates.T[indices]
 
-            corr = dict((i, self.query.score[i]) for i in range(len(self.query.score)))
-            score = np.vectorize(corr.get)(clusters)
-
-        score_map = np.zeros_like(self.dataset.train_gt.gt).astype(float)
-        coord = tuple((self.dataset.pool.coordinates[0], self.dataset.pool.coordinates[1]))
-        score_map[coord] = score
-        import matplotlib.pyplot as plt
-        plt.imshow(score_map)
-        plt.show()
+            if self.query.score is not None:
+                corr = dict((i, self.query.score[i]) for i in range(len(self.query.score)))
+                score = np.vectorize(corr.get)(clusters)
+                score_map = np.zeros_like(self.dataset.train_gt.gt).astype(float)
+                coord = tuple((self.dataset.pool.coordinates[0], self.dataset.pool.coordinates[1]))
+                score_map[coord] = score
+        
+        query_time = time.time() - start_query_time
+        f.writelines(['{} {} {} {}\n'.format(self.step_, training_time, query_time, pool[0].shape[0])])
+        f.close()
         sampling_time = time.time() - start_time
-
         self.added['coordinates'].extend(list(self.coordinates))
         self.step_ += 1
-        # self.display(self.coordinates)
         self.update_history(self.model.history, self.coordinates, training_time, sampling_time)
 
-        #if not self.config['benchmark']:
-        self.save_query()
+        #self.save_query()
 
     def oracle(self):
         coordinates = tuple((self.coordinates[:,0], self.coordinates[:,1]))
@@ -169,20 +171,13 @@ class ActiveLearningFramework:
     def restore(self):
         with open(self.config['restore'], 'rb') as f:
             self.dataset.train_gt, self.classes, self.added, self.history, self.timestamp = pkl.load(f)
-        # self.dataset.label_values = [v['label'] for v in self.classes.values()]
-        # self.n_classes = len(self.dataset.label_values)
-        # self.config['n_classes'] = self.n_classes
-        # self.config['classes'] = np.arange(1, self.n_classes)
+
         self.step_ = self.history['iteration'][-1]
         self.config['n_classes'] = self.n_classes
         self.config['classes'] = np.arange(1, self.n_classes)
         self.model, self.query, self.config = load_query(self.config, self.dataset)
 
     def init_step(self):
-        # import pyro
-        # if self.config['query'] in ['bald', 'batch_bald'] and self.step_ > 0:
-            # pyro.nn.module.clear(self.model.model)
-            # pyro.nn.module.clear(self.model.net)
         self.config['pool_size'] = self.dataset.pool.size
 
     def save_query(self):
