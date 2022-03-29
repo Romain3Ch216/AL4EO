@@ -6,24 +6,6 @@ import torch.optim as optim
 from torch.nn import init
 import torchnet as tnt
 
-# Pyro
-import pyro
-import pyro.distributions as dist
-import pyro.infer
-import pyro.optim
-from pyro.nn import PyroModule, PyroSample
-from pyro.infer import Predictive
-import pyro.distributions as dist
-from torch.distributions import constraints
-import pyro.nn as pynn
-import pyro.poutine as poutine
-from pyro.infer import SVI, Trace_ELBO, TraceMeanField_ELBO, MCMC, Predictive, autoguide
-
-# Tyxe
-import tyxe
-from tyxe.bnn import _empty_guide, VariationalBNN
-from tyxe import util
-
 # Utils
 import math
 import numpy as np
@@ -71,9 +53,545 @@ class Classifier:
     def init_params(self):
         return None
 
+
+#===============================================================================
+#                  Class for conventional neural networks
+#===============================================================================
+
+class NeuralNetwork(Classifier):
+    def __init__(self, net, optimizer, criterion):
+        super().__init__()
+        self.net = net
+        self.optimizer = optimizer
+        self.criterion = criterion
+        self.softmax = nn.Softmax(dim=-1)
+
+        self.best_metric = 0
+        self.best_epoch = 0
+        self.best_state = self.net.state_dict()
+
+    def init_params(self):
+        self.net.apply(self.net.weight_init)
+
+    def train(self, dataset, hyperparams):
+        train_data_loader, val_data_loader = dataset.load_data(dataset.img, dataset.train_gt())
+
+        for epoch in range(1, hyperparams['epochs']+1):
+            print('EPOCH {}/{}'.format(epoch, hyperparams['epochs']))
+
+            self.net.train()
+            self.net.to(hyperparams['device'])
+
+            acc_meter      = tnt.meter.ClassErrorMeter(accuracy=True)
+            loss_meter     = tnt.meter.AverageValueMeter()
+            grad_meter     = dict((depth, tnt.meter.AverageValueMeter()) for depth, _ in enumerate(self.net.parameters()))
+            y_true, y_pred = [], []
+
+            for batch_id, (spectra, y) in tqdm(enumerate(train_data_loader), total=len(train_data_loader)):
+
+                y_true.extend(list(map(int, y)))
+                spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
+
+                self.optimizer.zero_grad()
+                out = self.net(spectra)
+                loss = self.criterion(out, y.long())
+
+                loss.backward()
+                self.optimizer.step()
+
+                pred = out.detach()
+                y_p = pred.argmax(dim=1).cpu().numpy()
+                y_pred.extend(list(y_p))
+                acc_meter.add(pred, y)
+                loss_meter.add(loss.item())
+                for depth, params in enumerate(self.net.parameters()):
+                    if params.grad is not None:
+                        grad_meter[depth].add(torch.mean(torch.abs(params.grad)).item())
+
+            self.history['train_accuracy'].append(acc_meter.value()[0])
+            self.history['train_loss'].append(loss_meter.value()[0])
+            self.history['train_IoU'].append(mIou(y_true, y_pred, hyperparams['n_classes']))
+            self.history['train_kappa'].append(cohen_kappa_score(y_true, y_pred))
+
+            print('Loss {:.4f},  Acc {:.2f},  IoU {:.4f}'.format(\
+            self.history['train_loss'][-1], self.history['train_accuracy'][-1], self.history['train_IoU'][-1]))
+
+            # Validation
+
+            y_true, y_pred = [], []
+            acc_meter      = tnt.meter.ClassErrorMeter(accuracy=True)
+            loss_meter     = tnt.meter.AverageValueMeter()
+
+            self.net.eval()
+
+            for (spectra, y) in val_data_loader:
+                y_true.extend(list(map(int, y)))
+                spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
+
+                with torch.no_grad():
+                    prediction = self.net(spectra)
+                    loss = self.criterion(prediction, y)
+
+                acc_meter.add(prediction, y)
+                loss_meter.add(loss.item())
+                y_p = prediction.argmax(dim=1).cpu().numpy()
+                y_pred.extend(list(y_p))
+
+            if acc_meter.value()[0] > self.best_metric:
+                self.best_metric = acc_meter.value()[0]
+                self.best_epoch = epoch
+                self.best_state = self.net.state_dict()
+
+            self.history['val_accuracy'].append(acc_meter.value()[0])
+            self.history['val_loss'].append(loss_meter.value()[0])
+            self.history['val_IoU'].append(mIou(y_true, y_pred, hyperparams['n_classes']))
+            self.history['val_kappa'].append(cohen_kappa_score(y_true, y_pred))
+
+            print('Validation: Loss {:.4f},  Acc {:.2f},  IoU {:.4f}'.format(\
+            self.history['val_loss'][-1], self.history['val_accuracy'][-1], self.history['val_IoU'][-1]))
+
+
+    def predict_probs(self, data_loader, hyperparams):
+        self.net.to(hyperparams['device'])
+        self.net.eval()
+        probs = []
+        for batch_id, (data, _) in enumerate(data_loader):
+            data = data.to(hyperparams['device'])
+            with torch.no_grad():
+                probs.append(self.net(data).cpu())
+        probs = torch.cat(probs)
+        probs = self.softmax(probs)
+        return probs
+
+    def map(self, dataset, hyperparams):
+        self.net.to(hyperparams['device'])
+        img = torch.from_numpy(dataset.img)
+        h, w, b = img.shape
+        img = img.reshape(-1, b)
+        img = img.to(hyperparams['device'])
+        self.net.eval()
+        with torch.no_grad():
+            probs = self.net(img)
+        preds = torch.argmax(probs, dim=-1)
+        preds = preds.reshape(h, w)
+        return preds.cpu().numpy()
+
+    def evaluate(self, dataset, hyperparams):
+        self.net.load_state_dict(self.best_state)
+
+        test_data_loader = dataset.load_data(dataset.img, dataset.GT['test'], split=False)
+
+        y_true, y_pred = [], []
+        acc_meter      = tnt.meter.ClassErrorMeter(accuracy=True)
+
+        self.net.eval()
+        self.net.to(hyperparams['device'])
+
+        for (spectra, y) in test_data_loader:
+            y_true.extend(list(map(int, y)))
+            spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
+
+            with torch.no_grad():
+                prediction = self.net(spectra)
+
+
+            acc_meter.add(prediction, y)
+
+            y_p = prediction.argmax(dim=1).cpu().numpy()
+            y_pred.extend(list(y_p))
+
+        metrics = {'test_accuracy': acc_meter.value()[0],
+                   'test_IoU': mIou(y_true, y_pred, hyperparams['n_classes']),
+                   'test_kappa': cohen_kappa_score(y_true, y_pred)}
+
+
+        return metrics, confusion_matrix(y_true, y_pred, labels=list(range(hyperparams['n_classes'])))
+
+
+#===============================================================================
+#                  Basic and state-of-the-art neural networks
+#      Parts of code were taken from https://github.com/nshaud/DeepHyperX
+#===============================================================================
+
+class fnn(nn.Module):
+    """
+    Fully-connected network
+    """
+
+    def weight_init(self, m):
+        if isinstance(m, nn.Linear):
+            torch.manual_seed(self.seed)
+            torch.cuda.manual_seed(self.seed)
+            init.kaiming_normal_(m.weight)
+            init.zeros_(m.bias)
+
+    def __init__(self, input_channels, n_classes, dropout, seed=None):
+        super(fnn, self).__init__()
+
+        self.fc1 = nn.Linear(input_channels, 100)
+        self.fc2 = nn.Linear(100, 100)
+        self.fc3 = nn.Linear(100, n_classes)
+        if seed:
+            self.seed = seed
+        else:
+            self.seed = torch.randint(0, 100, (1,1)).item()
+        self.apply(self.weight_init)
+
+        self.dropout = nn.Dropout(p=dropout)
+
+    def penalty(self, alpha):
+        weights = self.fc1.weight
+        L1_norm = torch.sum(torch.abs(weights))
+        return alpha * L1_norm
+
+    def forward(self, x):
+        x = self.dropout(x)
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        x = self.dropout(x)
+        x = self.fc3(x)
+        return x
+
+class LiEtAl(nn.Module):
+    """
+    SPECTRAL–SPATIAL CLASSIFICATION OF HYPERSPECTRAL IMAGERY
+            WITH 3D CONVOLUTIONAL NEURAL NETWORK
+    Ying Li, Haokui Zhang and Qiang Shen
+    MDPI Remote Sensing, 2017
+    http://www.mdpi.com/2072-4292/9/1/67
+    """
+    @staticmethod
+    def weight_init(m):
+        if isinstance(m, nn.Linear) or isinstance(m, nn.Conv3d):
+            init.xavier_uniform_(m.weight.data)
+            init.constant_(m.bias.data, 0)
+
+    def __init__(self, input_channels, n_classes, n_planes=2, patch_size=5):
+        super(LiEtAl, self).__init__()
+        self.input_channels = input_channels
+        self.n_planes = n_planes
+        self.patch_size = patch_size
+
+        # The proposed 3D-CNN model has two 3D convolution layers (C1 and C2)
+        # and a fully-connected layer (F1)
+        # we fix the spatial size of the 3D convolution kernels to 3 × 3
+        # while only slightly varying the spectral depth of the kernels
+        # for the Pavia University and Indian Pines scenes, those in C1 and C2
+        # were set to seven and three, respectively
+        self.conv1 = nn.Conv3d(1, n_planes, (7, 3, 3), padding=(1, 0, 0))
+        # the number of kernels in the second convolution layer is set to be
+        # twice as many as that in the first convolution layer
+        self.conv2 = nn.Conv3d(n_planes, 2 * n_planes,
+                               (3, 3, 3), padding=(1, 0, 0))
+        #self.dropout = nn.Dropout(p=0.5)
+        self.features_size = self._get_final_flattened_size()
+
+        self.fc = nn.Linear(self.features_size, n_classes)
+
+        self.apply(self.weight_init)
+
+    def _get_final_flattened_size(self):
+        with torch.no_grad():
+            x = torch.zeros((1, 1, self.input_channels,
+                             self.patch_size, self.patch_size))
+            x = self.conv1(x)
+            x = self.conv2(x)
+            _, t, c, w, h = x.size()
+        return t * c * w * h
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = x.view(-1, self.features_size)
+        #x = self.dropout(x)
+        x = self.fc(x)
+        return x
+
+    def conv(self, x):
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        return x
+
+
+class HuEtAl(nn.Module):
+    """
+    Deep Convolutional Neural Networks for Hyperspectral Image Classification
+    Wei Hu, Yangyu Huang, Li Wei, Fan Zhang and Hengchao Li
+    Journal of Sensors, Volume 2015 (2015)
+    https://www.hindawi.com/journals/js/2015/258619/
+    """
+
+    def weight_init(self, m):
+        # [All the trainable parameters in our CNN should be initialized to
+        # be a random value between −0.05 and 0.05.]
+        if isinstance(m, nn.Linear) or isinstance(m, nn.Conv1d):
+            torch.manual_seed(self.seed)
+            torch.cuda.manual_seed(self.seed)
+            init.uniform_(m.weight, -0.05, 0.05)
+            init.zeros_(m.bias)
+
+    def _get_final_flattened_size(self):
+        with torch.no_grad():
+            x = torch.zeros(1, 1, self.input_channels)
+            x = self.pool(self.conv(x))
+        return x.numel()
+
+    def __init__(self, input_channels, n_classes, n_convs=20, kernel_size=None, pool_size=None, seed=None, dropout=None):
+        super(HuEtAl, self).__init__()
+        if kernel_size is None:
+           # [In our experiments, k1 is better to be [ceil](n1/9)]
+           kernel_size = math.ceil(input_channels / 9)
+        if pool_size is None:
+           # The authors recommand that k2's value is chosen so that the pooled features have 30~40 values
+           # ceil(kernel_size/5) gives the same values as in the paper so let's assume it's okay
+           pool_size = math.ceil(kernel_size / 5)
+        self.input_channels = input_channels
+
+        # [The first hidden convolution layer C1 filters the n1 x 1 input data with 20 kernels of size k1 x 1]
+        self.conv = nn.Conv1d(1, n_convs, kernel_size)
+        self.pool = nn.MaxPool1d(pool_size)
+        self.features_size = self._get_final_flattened_size()
+        # [n4 is set to be 100]
+        self.fc1 = nn.Linear(self.features_size, 100)
+        self.fc2 = nn.Linear(100, n_classes)
+        if seed:
+            self.seed = seed
+        else:
+            self.seed = torch.randint(0, 100, (1,1)).item()
+
+        if dropout:
+            self.dropout = nn.Dropout(p=dropout)
+        else:
+            self.dropout = nn.Dropout(p=0)
+        self.apply(self.weight_init)
+
+    def forward(self, x):
+        # [In our design architecture, we choose the hyperbolic tangent function tanh(u)]
+        x = x.unsqueeze(1)
+        x = self.conv(x)
+        x = torch.tanh(self.pool(x))
+        x = x.view(-1, self.features_size)
+        x = self.dropout(x)
+        x = torch.tanh(self.fc1(x))
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return x
+
+#===============================================================================
+#                         Multi View Classifier
+#===============================================================================
+
+class MultiView(Classifier):
+    def __init__(self, net, optimizer, criterion, n_views=4, min_width=30):
+        super().__init__()
+        self.net = net
+        self.optimizer = optimizer
+        self.criterion = criterion
+        self.softmax = nn.Softmax(dim=-1)
+        self.n_views = n_views
+        self.min_width = min_width
+        self.history = {}
+        self.view_history = {}
+        for view_id in range(n_views):
+            self.view_history[view_id] =  {
+                'train_loss': [np.nan],
+                'train_accuracy': [np.nan],
+                'train_IoU': [np.nan],
+                'train_kappa': [np.nan],
+                'grad': [np.nan],
+                'val_loss': [np.nan],
+                'val_accuracy': [np.nan],
+                'val_IoU': [np.nan],
+                'val_kappa': [np.nan],
+                'test_loss': [np.nan],
+                'test_accuracy': [np.nan],
+                'test_IoU': [np.nan],
+                'test_kappa': [np.nan]
+            }
+
+
+    def init_params(self):
+        return None
+
+    @staticmethod
+    def weight_init(m):
+        if isinstance(m, nn.Linear) or isinstance(m, nn.Conv1d):
+            init.uniform_(m.weight, -0.05, 0.05)
+            init.zeros_(m.bias)
+
+    def compute_views(self, img):
+        """ Computes views according to the correlation matrix
+        * Args:
+            - img: npy array, HS img
+            - n_views: number of views
+            - min_width: minimum number of bands for a view
+        * Output:
+            - views: dict of npy array for each view
+        """
+        n_views = self.n_views
+        min_width = self.min_width
+
+        cov = np.cov(img.reshape(-1, img.shape[-1]).T)
+        diag = np.diagonal(cov).reshape(-1,1)
+        correlation_matrix = cov / diag**0.5 / (diag.T)**0.5
+        correlations = np.diagonal(correlation_matrix, offset=1)
+
+        ind = np.argsort(correlations)
+        indices = np.zeros(n_views-1)
+        i = 0
+        while ind[i] < min_width:
+            i += 1
+        indices[0] = ind[i]
+        i, j = 1, 1
+        while indices[-1] == 0 and j < len(ind):
+            ind_ = ind[j]
+            if np.min(np.abs(indices - ind_)) > min_width:
+                indices[i] = ind_
+                i += 1
+                j += 1
+            else:
+                j += 1
+
+        assert j != len(ind), "Could not split the data in {} views".format(n_views)
+
+        self.view_indices = np.sort(indices).astype(int)
+
+    def create_views(self, data):
+        views = {}
+        n_views = self.n_views
+        if len(data.shape) >= 3:
+            views[0] = data[:,:,:self.view_indices[0]]
+            for view_id in range(1, len(self.view_indices)):
+                views[view_id] = data[:,:,self.view_indices[view_id-1] : self.view_indices[view_id]]
+            views[n_views-1] = data[:,:,self.view_indices[-1]:]
+        else:
+            views[0] = data[:,:self.view_indices[0]]
+            for view_id in range(1, len(self.view_indices)):
+                views[view_id] = data[:,self.view_indices[view_id-1] : self.view_indices[view_id]]
+            views[n_views-1] = data[:,self.view_indices[-1]:]
+        return views
+
+    def train(self, dataset, hyperparams):
+        self.compute_views(dataset.img)
+        views = self.create_views(dataset.img)
+        self.nets = {}
+
+        for view_id in views:
+            self.nets[view_id] = copy.deepcopy(self.net)
+            self.nets[view_id].__init__(views[view_id].shape[-1], dataset.n_classes)
+            self.nets[view_id].apply(self.weight_init)
+            self.nets[view_id].to(hyperparams['device'])
+
+            train_data_loader, val_data_loader = dataset.load_data(views[view_id], dataset.train_gt.gt)
+
+            for epoch in range(1, hyperparams['epochs']+1):
+                print('EPOCH {}/{}'.format(epoch, hyperparams['epochs']))
+
+                self.nets[view_id].train()
+
+                acc_meter      = tnt.meter.ClassErrorMeter(accuracy=True)
+                loss_meter     = tnt.meter.AverageValueMeter()
+                grad_meter     = dict((depth, tnt.meter.AverageValueMeter()) for depth, _ in enumerate(self.nets[view_id].parameters()))
+                y_true, y_pred = [], []
+
+                for batch_id, (spectra, y) in tqdm(enumerate(train_data_loader), total=len(train_data_loader)):
+
+                    y_true.extend(list(map(int, y)))
+                    spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
+
+                    self.optimizer.zero_grad()
+                    out = self.nets[view_id](spectra)
+                    loss = self.criterion(out, y.long())
+
+                    loss.backward()
+                    self.optimizer.step()
+
+                    pred = out.detach()
+                    y_p = pred.argmax(dim=1).cpu().numpy()
+                    y_pred.extend(list(y_p))
+                    acc_meter.add(pred, y)
+                    loss_meter.add(loss.item())
+                    for depth, params in enumerate(self.nets[view_id].parameters()):
+                        if params.grad is not None:
+                            grad_meter[depth].add(torch.mean(torch.abs(params.grad)).item())
+
+                self.view_history[view_id]['train_accuracy'].append(acc_meter.value()[0])
+                self.view_history[view_id]['train_loss'].append(loss_meter.value()[0])
+                self.view_history[view_id]['train_IoU'].append(mIou(y_true, y_pred, hyperparams['n_classes']))
+                self.view_history[view_id]['train_kappa'].append(cohen_kappa_score(y_true, y_pred))
+
+                print('Loss {:.4f},  Acc {:.2f},  IoU {:.4f}'.format(\
+                self.view_history[view_id]['train_loss'][-1], self.view_history[view_id]['train_accuracy'][-1], self.view_history[view_id]['train_IoU'][-1]))
+
+                # Validation
+
+                y_true, y_pred = [], []
+                acc_meter      = tnt.meter.ClassErrorMeter(accuracy=True)
+                loss_meter     = tnt.meter.AverageValueMeter()
+
+                self.nets[view_id].eval()
+
+                for (spectra, y) in val_data_loader:
+                    y_true.extend(list(map(int, y)))
+                    spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
+
+                    with torch.no_grad():
+                        prediction = self.nets[view_id](spectra)
+                        loss = self.criterion(prediction, y)
+
+                    acc_meter.add(prediction, y)
+                    loss_meter.add(loss.item())
+                    y_p = prediction.argmax(dim=1).cpu().numpy()
+                    y_pred.extend(list(y_p))
+
+                self.view_history[view_id]['val_accuracy'].append(acc_meter.value()[0])
+                self.view_history[view_id]['val_loss'].append(loss_meter.value()[0])
+                self.view_history[view_id]['val_IoU'].append(mIou(y_true, y_pred, hyperparams['n_classes']))
+                self.view_history[view_id]['val_kappa'].append(cohen_kappa_score(y_true, y_pred))
+
+                print('Validation: Loss {:.4f},  Acc {:.2f},  IoU {:.4f}'.format(\
+                self.view_history[view_id]['val_loss'][-1], self.view_history[view_id]['val_accuracy'][-1], self.view_history[view_id]['val_IoU'][-1]))
+
+        self.history['train_accuracy'] = np.mean(np.array([np.array(self.view_history[view_id]['train_accuracy']) for view_id in range(self.n_views)]), axis=0)
+        self.history['train_loss'] = np.mean(np.array([np.array(self.view_history[view_id]['train_loss']) for view_id in range(self.n_views)]), axis=0)
+        self.history['train_IoU'] = np.mean(np.array([np.array(self.view_history[view_id]['train_IoU']) for view_id in range(self.n_views)]), axis=0)
+        self.history['train_kappa'] = np.mean(np.array([np.array(self.view_history[view_id]['train_kappa']) for view_id in range(self.n_views)]), axis=0)
+
+        self.history['val_accuracy'] = np.mean(np.array([np.array(self.view_history[view_id]['val_accuracy']) for view_id in range(self.n_views)]), axis=0)
+        self.history['val_loss'] = np.mean(np.array([np.array(self.view_history[view_id]['val_loss']) for view_id in range(self.n_views)]), axis=0)
+        self.history['val_IoU'] = np.mean(np.array([np.array(self.view_history[view_id]['val_IoU']) for view_id in range(self.n_views)]), axis=0)
+        self.history['val_kappa'] = np.mean(np.array([np.array(self.view_history[view_id]['val_kappa']) for view_id in range(self.n_views)]), axis=0)
+
+
+    def view_loader(self, data_loader):
+        for data_, _ in data_loader:
+            yield self.create_views(data_)
+
+    def predict_probs(self, data_loader, hyperparams):
+        probs = torch.zeros((self.n_views, hyperparams['pool_size'], hyperparams['n_classes']))
+
+        for batch_id, views in enumerate(self.view_loader(data_loader)):
+            for view_id in views:
+                net = self.nets[view_id]
+                batch_size = hyperparams['batch_size']
+                net.to(hyperparams['device'])
+                net.eval()
+                data = views[view_id].to(hyperparams['device'])
+
+                with torch.no_grad():
+                    probs[view_id, batch_id*batch_size:min(hyperparams['pool_size'], (batch_id+1)*batch_size),:] = \
+                        net(data)
+
+        probs = self.softmax(probs)
+        n_views, N, n_classes = probs.shape
+        probs = probs.reshape(N, n_classes, n_views)
+        return probs
+
 #===============================================================================
 #              Classes for Variarional Adversarial Active Learning
-#                 code from https://github.com/sinhasam/vaal
+#                 Credits to https://github.com/sinhasam/vaal
+#                        Code was partially modified
 #===============================================================================
 
 class View(nn.Module):
@@ -257,8 +775,6 @@ class VaalClassifier(Classifier):
 
         train_data_loader, val_data_loader = dataset.load_data(dataset.img, dataset.train_gt())
         labeled_data = self.read_data(train_data_loader)
-        #test_data_loader = dataset.load_data(dataset.img, dataset.GT['test'])
-        # self.n_val = len(dataset.data_loader('val', hyperparams))
         unlabeled_data = self.read_data(dataset.load_data(dataset.img, dataset.pool(), split=False), labels=False)
 
         optim_vae = optim.Adam(self.vae.parameters(), lr=5e-4)
@@ -358,9 +874,6 @@ class VaalClassifier(Classifier):
                 print('Current discriminator model loss: {:.4f}'.format(dsc_loss.item()))
 
 
-
-
-
     def validate(self, task_model, loader, hyperparams):
         task_model.eval()
         total, correct = 0, 0
@@ -389,6 +902,7 @@ class VaalClassifier(Classifier):
 
 #===============================================================================
 #                   Class for Bayesian Active Learning
+#         Code from https://github.com/ElementAI/baal was partially modified
 #===============================================================================
 
 import sys
@@ -591,572 +1105,10 @@ class BayesianModelWrapper:
 
         self.model.apply(reset)
 
-# class BayesianNet(PyroModule):
-#     def __init__(self, n_bands, n_classes, h1):
-#         super().__init__()
-#         self.n_bands = n_bands
-#         self.n_classes = n_classes
-#         self.softmax = nn.Softmax(dim=-2)
-#         pyro.primitives.clear_param_store()
-#
-#         self.fc1 = PyroModule[nn.Linear](n_bands, h1)
-#         self.fc1.weight = PyroSample(dist.Normal(0., 1.).expand([h1, n_bands]).to_event(2))
-#         self.fc1.bias = PyroSample(dist.Normal(0., 1.).expand([h1]).to_event(1))
-#
-#         self.fc2 = PyroModule[nn.Linear](h1, n_classes)
-#         self.fc2.weight = PyroSample(dist.Normal(0., 1.).expand([n_classes, h1]).to_event(2))
-#         self.fc2.bias = PyroSample(dist.Normal(0., 1.).expand([n_classes]).to_event(1))
-#
-#         # self.fc3 = PyroModule[nn.Linear](h2, out_features)
-#         # self.fc3.weight = PyroSample(dist.Normal(0., 1.).expand([out_features, h2]).to_event(2))
-#         # self.fc3.bias = PyroSample(dist.Normal(0., 1.).expand([out_features]).to_event(1))
-#
-#     def forward(self, X, y=None):
-#         X = F.relu(self.fc1(X))
-#         out = self.fc2(X)
-#         with pyro.plate('observed_data'):
-#             pyro.sample('obs', dist.Categorical(logits=out), obs=y)
-#         return out
-#
-#
-#     def guide(self, X, y):
-#         fc1w_mu = pyro.param('fc1w_mu', torch.randn_like(self.fc1.weight))
-#         fc1w_sigma = pyro.param('fc1w_sigma', torch.ones_like(self.fc1.weight), constraint=constraints.positive)
-#         W1 = pyro.sample('fc1.weight', dist.Normal(loc=fc1w_mu, scale=fc1w_sigma).to_event(2))
-#
-#         fc1b_mu = pyro.param('fc1b_mu', torch.randn_like(self.fc1.bias))
-#         fc1b_sigma = pyro.param('fc1b_sigma', torch.ones_like(self.fc1.bias), constraint=constraints.positive)
-#         b1 = pyro.sample('fc1.bias', dist.Normal(loc=fc1b_mu, scale=fc1b_sigma).to_event(1))
-#
-#         fc2w_mu = pyro.param('fc2w_mu', torch.randn_like(self.fc2.weight))
-#         fc2w_sigma = pyro.param('fc2w_sigma', torch.ones_like(self.fc2.weight), constraint=constraints.positive)
-#         W2 = pyro.sample('fc2.weight', dist.Normal(loc=fc2w_mu, scale=fc2w_sigma).to_event(2))
-#
-#         fc2b_mu = pyro.param('fc2b_mu', torch.randn_like(self.fc2.bias))
-#         fc2b_sigma = pyro.param('fc2b_sigma', torch.ones_like(self.fc2.bias), constraint=constraints.positive)
-#         b2 = pyro.sample('fc2.bias', dist.Normal(loc=fc2b_mu, scale=fc2b_sigma).to_event(1))
-#
-# class BayesianModel(Classifier):
-#     def __init__(self, n_bands, n_classes):
-#         super().__init__()
-#         self.net = BayesianNet(n_bands, n_classes, h1=128)
-#         self.n_bands = n_bands
-#         self.n_classes = n_classes
-#         self.softmax = nn.Softmax(dim=-2)
-#
-#     def init_params(self):
-#         pyro.primitives.clear_param_store()
-#
-#     def train(self, dataset, hyperparams):
-#         pyro.clear_param_store()
-#
-#         train_data_loader, val_data_loader = dataset.load_data(dataset.img, dataset.train_gt())
-#
-#         svi = pyro.infer.SVI(model=self.net,
-#                              guide=self.net.guide,
-#                              optim=pyro.optim.SGD({"lr": 0.001, "momentum":0.1}),
-#                              loss=pyro.infer.Trace_ELBO())
-#
-#         losses = []
-#         for t in range(hyperparams['epochs']):
-#             print('Step {}:'.format(t))
-#             for spectra, label in tqdm(train_data_loader, total=len(train_data_loader)):
-#                 spectra, label = spectra.to(hyperparams['device']), label.to(hyperparams['device'])
-#                 losses.append(svi.step(spectra, label))
-#             print('Train loss: {}'.format(losses[-1]))
-#
-#             self.history['train_loss'].append(losses[-1])
-#
-#     def predict_probs(self, data_loader, hyperparams):
-#         predictive = Predictive(self.net, guide=self.net.guide, num_samples=hyperparams['num_samples'], return_sites=set({"obs", "_RETURN"}))
-#         probs = []
-#         for data, _ in data_loader:
-#             data = data.to(hyperparams["device"])
-#             with torch.no_grad():
-#                 predicted = predictive(data, y=None)
-#             prob = predicted['_RETURN']
-#             n_iterations, n_samples, n_classes = prob.shape
-#             prob = prob.reshape(n_samples, n_classes, n_iterations)
-#             probs.append(prob)
-#         probs = torch.cat(probs)
-#         probs = self.softmax(probs)
-#         return probs
-
-
-# class BayesianModel(Classifier, nn.Module):
-#     def __init__(self, n_bands, n_classes):
-#         Classifier.__init__(self)
-#         nn.Module.__init__(self)
-#
-#         self.n_bands = n_bands
-#         self.n_classes = n_classes
-#         self.softmax = nn.Softmax(dim=-2)
-#         pyro.primitives.clear_param_store()
-#
-#     def init_params(self):
-#         pyro.primitives.clear_param_store()
-#
-#     def train(self, dataset, hyperparams):
-#         dataset.hyperparams['device'] = 'cpu'
-#         train_data_loader, val_data_loader = dataset.load_data(dataset.img, dataset.train_gt())
-#
-#         prior = tyxe.priors.IIDPrior(dist.Normal(0, 1))
-#         likelihood = tyxe.observation_models.Categorical(dataset_size = len(train_data_loader))
-#         inference = autoguide.AutoDiagonalNormal
-#         if hyperparams['model'] == 'fnn':
-#             net = nn.Sequential(nn.Linear(self.n_bands, 64), nn.ReLU(), nn.Linear(64, 256), nn.ReLU(), nn.Linear(256, self.n_classes))
-#         else:
-#             net = HuEtAl(self.n_bands, self.n_classes)
-#
-#         self.model = tyxe.VariationalBNN(net, prior, likelihood, inference)
-#         optim = pyro.optim.Adam({'lr': hyperparams['learning_rate']})
-#         self.model.fit(train_data_loader, optim, num_epochs=hyperparams['epochs'])
-#
-#         y_true, y_pred = [], []
-#         for spectra, label in train_data_loader:
-#             spectra, label = spectra.to(hyperparams['device']), label.to(hyperparams['device'])
-#             y_true.extend(list(label.cpu().numpy()))
-#             with torch.no_grad():
-#                 pred = self.model.predict(spectra, num_predictions=1)
-#             pred = np.argmax(pred.numpy(), axis=-1)
-#             y_pred.extend(list(pred))
-#
-#         OA = accuracy_score(y_true, y_pred)
-#         iou = mIou(y_true, y_pred, n_classes=hyperparams['n_classes'])
-#
-#         self.history['train_accuracy'].append(OA)
-#         self.history['train_IoU'].append(iou)
-#
-#         # Validation
-#         y_true, y_pred = [], []
-#         for spectra, label in val_data_loader:
-#             y_true.extend(list(label.cpu().numpy()))
-#             spectra, label = spectra.to(hyperparams['device']), label.to(hyperparams['device'])
-#             with torch.no_grad():
-#                 pred = self.model.predict(spectra, num_predictions=1)
-#             pred = np.argmax(pred.numpy(), axis=-1)
-#             y_pred.extend(list(pred))
-#
-#         OA = accuracy_score(y_true, y_pred)
-#         iou = mIou(y_true, y_pred, n_classes=hyperparams['n_classes'])
-#
-#         self.history['val_accuracy'].append(OA)
-#         self.history['val_IoU'].append(iou)
-#
-#         # Temporary
-#         self.best_metric = OA
-#
-#     def evaluate(self, dataset, hyperparams):
-#         test_data_loader = dataset.data_loader('test', hyperparams)
-#
-#         y_true, y_pred = [], []
-#         acc_meter      = tnt.meter.ClassErrorMeter(accuracy=True)
-#
-#         self.net.eval()
-#         self.net.to(hyperparams['device'])
-#
-#         for (spectra, y) in test_data_loader:
-#             y_true.extend(list(map(int, y)))
-#             spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
-#
-#             with torch.no_grad():
-#                 prediction = self.net(spectra)
-#
-#
-#             acc_meter.add(prediction, y)
-#
-#             y_p = prediction.argmax(dim=1).cpu().numpy()
-#             y_pred.extend(list(y_p))
-#
-#         metrics = {'test_accuracy': acc_meter.value()[0],
-#                    'test_IoU': mIou(y_true, y_pred, hyperparams['n_classes']),
-#                    'test_kappa': cohen_kappa_score(y_true, y_pred)}
-#
-#
-#         return metrics, confusion_matrix(y_true, y_pred, labels=list(range(hyperparams['n_classes'])))
-#
-#
-#     def predict_probs(self, data_loader, hyperparams):
-#         self.model.eval()
-#         batch_size = hyperparams['batch_size']
-#         probs = torch.zeros((hyperparams['num_samples'], hyperparams['pool_size'], hyperparams['n_classes']))
-#         for batch_id, (data, _) in enumerate(data_loader):
-#             data = data.to(hyperparams['device'])
-#             probs[:,batch_id*batch_size:min(hyperparams['pool_size'], (batch_id+1)*batch_size),:] = \
-#                 self.model.predict(data, num_predictions=hyperparams['num_samples'], aggregate=False)
-#         probs = self.softmax(probs)
-#         n_iterations, n_samples, n_classes = probs.shape
-#         probs = probs.reshape(n_samples, n_classes, n_iterations)
-#         return probs
 
 #===============================================================================
-#                  Class for conventional neural networks
-#===============================================================================
-
-class NeuralNetwork(Classifier):
-    def __init__(self, net, optimizer, criterion):
-        super().__init__()
-        self.net = net
-        self.optimizer = optimizer
-        self.criterion = criterion
-        self.softmax = nn.Softmax(dim=-1)
-
-        self.best_metric = 0
-        self.best_epoch = 0
-        self.best_state = self.net.state_dict()
-
-    def init_params(self):
-        self.net.apply(self.net.weight_init)
-
-    def train(self, dataset, hyperparams):
-        train_data_loader, val_data_loader = dataset.load_data(dataset.img, dataset.train_gt())
-
-        for epoch in range(1, hyperparams['epochs']+1):
-            print('EPOCH {}/{}'.format(epoch, hyperparams['epochs']))
-
-            self.net.train()
-            self.net.to(hyperparams['device'])
-
-            acc_meter      = tnt.meter.ClassErrorMeter(accuracy=True)
-            loss_meter     = tnt.meter.AverageValueMeter()
-            grad_meter     = dict((depth, tnt.meter.AverageValueMeter()) for depth, _ in enumerate(self.net.parameters()))
-            y_true, y_pred = [], []
-
-            for batch_id, (spectra, y) in tqdm(enumerate(train_data_loader), total=len(train_data_loader)):
-
-                y_true.extend(list(map(int, y)))
-                spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
-
-                self.optimizer.zero_grad()
-                out = self.net(spectra)
-                loss = self.criterion(out, y.long())
-
-                loss.backward()
-                self.optimizer.step()
-
-                pred = out.detach()
-                y_p = pred.argmax(dim=1).cpu().numpy()
-                y_pred.extend(list(y_p))
-                acc_meter.add(pred, y)
-                loss_meter.add(loss.item())
-                for depth, params in enumerate(self.net.parameters()):
-                    if params.grad is not None:
-                        grad_meter[depth].add(torch.mean(torch.abs(params.grad)).item())
-
-            self.history['train_accuracy'].append(acc_meter.value()[0])
-            self.history['train_loss'].append(loss_meter.value()[0])
-            self.history['train_IoU'].append(mIou(y_true, y_pred, hyperparams['n_classes']))
-            self.history['train_kappa'].append(cohen_kappa_score(y_true, y_pred))
-
-            print('Loss {:.4f},  Acc {:.2f},  IoU {:.4f}'.format(\
-            self.history['train_loss'][-1], self.history['train_accuracy'][-1], self.history['train_IoU'][-1]))
-
-            # Validation
-
-            y_true, y_pred = [], []
-            acc_meter      = tnt.meter.ClassErrorMeter(accuracy=True)
-            loss_meter     = tnt.meter.AverageValueMeter()
-
-            self.net.eval()
-
-            for (spectra, y) in val_data_loader:
-                y_true.extend(list(map(int, y)))
-                spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
-
-                with torch.no_grad():
-                    prediction = self.net(spectra)
-                    loss = self.criterion(prediction, y)
-
-                acc_meter.add(prediction, y)
-                loss_meter.add(loss.item())
-                y_p = prediction.argmax(dim=1).cpu().numpy()
-                y_pred.extend(list(y_p))
-
-            if acc_meter.value()[0] > self.best_metric:
-                self.best_metric = acc_meter.value()[0]
-                self.best_epoch = epoch
-                self.best_state = self.net.state_dict()
-
-            self.history['val_accuracy'].append(acc_meter.value()[0])
-            self.history['val_loss'].append(loss_meter.value()[0])
-            self.history['val_IoU'].append(mIou(y_true, y_pred, hyperparams['n_classes']))
-            self.history['val_kappa'].append(cohen_kappa_score(y_true, y_pred))
-
-            print('Validation: Loss {:.4f},  Acc {:.2f},  IoU {:.4f}'.format(\
-            self.history['val_loss'][-1], self.history['val_accuracy'][-1], self.history['val_IoU'][-1]))
-
-
-    def predict_probs(self, data_loader, hyperparams):
-        self.net.to(hyperparams['device'])
-        self.net.eval()
-        probs = []
-        for batch_id, (data, _) in enumerate(data_loader):
-            data = data.to(hyperparams['device'])
-            with torch.no_grad():
-                probs.append(self.net(data).cpu())
-        probs = torch.cat(probs)
-        probs = self.softmax(probs)
-        return probs
-
-    def map(self, dataset, hyperparams):
-        self.net.to(hyperparams['device'])
-        img = torch.from_numpy(dataset.img)
-        h, w, b = img.shape
-        img = img.reshape(-1, b)
-        img = img.to(hyperparams['device'])
-        self.net.eval()
-        with torch.no_grad():
-            probs = self.net(img)
-        preds = torch.argmax(probs, dim=-1)
-        preds = preds.reshape(h, w)
-        return preds.cpu().numpy()
-
-    def evaluate(self, dataset, hyperparams):
-        self.net.load_state_dict(self.best_state)
-        
-        test_data_loader = dataset.load_data(dataset.img, dataset.GT['test'], split=False)
-
-        y_true, y_pred = [], []
-        acc_meter      = tnt.meter.ClassErrorMeter(accuracy=True)
-
-        self.net.eval()
-        self.net.to(hyperparams['device'])
-
-        for (spectra, y) in test_data_loader:
-            y_true.extend(list(map(int, y)))
-            spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
-
-            with torch.no_grad():
-                prediction = self.net(spectra)
-
-
-            acc_meter.add(prediction, y)
-
-            y_p = prediction.argmax(dim=1).cpu().numpy()
-            y_pred.extend(list(y_p))
-
-        metrics = {'test_accuracy': acc_meter.value()[0],
-                   'test_IoU': mIou(y_true, y_pred, hyperparams['n_classes']),
-                   'test_kappa': cohen_kappa_score(y_true, y_pred)}
-
-
-        return metrics, confusion_matrix(y_true, y_pred, labels=list(range(hyperparams['n_classes'])))
-
-#===============================================================================
-#                         Multi View Classifier
-#===============================================================================
-
-class MultiView(Classifier):
-    def __init__(self, net, optimizer, criterion, n_views=4, min_width=30):
-        super().__init__()
-        self.net = net
-        self.optimizer = optimizer
-        self.criterion = criterion
-        self.softmax = nn.Softmax(dim=-1)
-        self.n_views = n_views
-        self.min_width = min_width
-        self.history = {}
-        self.view_history = {}
-        for view_id in range(n_views):
-            self.view_history[view_id] =  {
-                'train_loss': [np.nan],
-                'train_accuracy': [np.nan],
-                'train_IoU': [np.nan],
-                'train_kappa': [np.nan],
-                'grad': [np.nan],
-                'val_loss': [np.nan],
-                'val_accuracy': [np.nan],
-                'val_IoU': [np.nan],
-                'val_kappa': [np.nan],
-                'test_loss': [np.nan],
-                'test_accuracy': [np.nan],
-                'test_IoU': [np.nan],
-                'test_kappa': [np.nan]
-            }
-
-
-    def init_params(self):
-        return None
-
-    @staticmethod
-    def weight_init(m):
-        # [All the trainable parameters in our CNN should be initialized to
-        # be a random value between −0.05 and 0.05.]
-        if isinstance(m, nn.Linear) or isinstance(m, nn.Conv1d):
-            init.uniform_(m.weight, -0.05, 0.05)
-            init.zeros_(m.bias)
-
-    def compute_views(self, img):
-        """ Computes views according to the correlation matrix
-        * Args:
-            - img: npy array, HS img
-            - n_views: number of views
-            - min_width: minimum number of bands for a view
-        * Output:
-            - views: dict of npy array for each view
-        """
-        n_views = self.n_views
-        min_width = self.min_width
-
-        cov = np.cov(img.reshape(-1, img.shape[-1]).T)
-        diag = np.diagonal(cov).reshape(-1,1)
-        correlation_matrix = cov / diag**0.5 / (diag.T)**0.5
-        correlations = np.diagonal(correlation_matrix, offset=1)
-
-        ind = np.argsort(correlations)
-        indices = np.zeros(n_views-1)
-        i = 0
-        while ind[i] < min_width:
-            i += 1
-        indices[0] = ind[i]
-        i, j = 1, 1
-        while indices[-1] == 0 and j < len(ind):
-            ind_ = ind[j]
-            if np.min(np.abs(indices - ind_)) > min_width:
-                indices[i] = ind_
-                i += 1
-                j += 1
-            else:
-                j += 1
-
-        assert j != len(ind), "Could not split the data in {} views".format(n_views)
-
-        self.view_indices = np.sort(indices).astype(int)
-
-    def create_views(self, data):
-        views = {}
-        n_views = self.n_views
-        if len(data.shape) >= 3:
-            views[0] = data[:,:,:self.view_indices[0]]
-            for view_id in range(1, len(self.view_indices)):
-                views[view_id] = data[:,:,self.view_indices[view_id-1] : self.view_indices[view_id]]
-            views[n_views-1] = data[:,:,self.view_indices[-1]:]
-        else:
-            views[0] = data[:,:self.view_indices[0]]
-            for view_id in range(1, len(self.view_indices)):
-                views[view_id] = data[:,self.view_indices[view_id-1] : self.view_indices[view_id]]
-            views[n_views-1] = data[:,self.view_indices[-1]:]
-        return views
-
-    def train(self, dataset, hyperparams):
-        self.compute_views(dataset.img)
-        views = self.create_views(dataset.img)
-        self.nets = {}
-
-        for view_id in views:
-            self.nets[view_id] = copy.deepcopy(self.net)
-            self.nets[view_id].__init__(views[view_id].shape[-1], dataset.n_classes)
-            self.nets[view_id].apply(self.weight_init)
-            self.nets[view_id].to(hyperparams['device'])
-
-            train_data_loader, val_data_loader = dataset.load_data(views[view_id], dataset.train_gt.gt)
-
-            for epoch in range(1, hyperparams['epochs']+1):
-                print('EPOCH {}/{}'.format(epoch, hyperparams['epochs']))
-
-                self.nets[view_id].train()
-
-                acc_meter      = tnt.meter.ClassErrorMeter(accuracy=True)
-                loss_meter     = tnt.meter.AverageValueMeter()
-                grad_meter     = dict((depth, tnt.meter.AverageValueMeter()) for depth, _ in enumerate(self.nets[view_id].parameters()))
-                y_true, y_pred = [], []
-
-                for batch_id, (spectra, y) in tqdm(enumerate(train_data_loader), total=len(train_data_loader)):
-
-                    y_true.extend(list(map(int, y)))
-                    spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
-
-                    self.optimizer.zero_grad()
-                    out = self.nets[view_id](spectra)
-                    loss = self.criterion(out, y.long())
-
-                    loss.backward()
-                    self.optimizer.step()
-
-                    pred = out.detach()
-                    y_p = pred.argmax(dim=1).cpu().numpy()
-                    y_pred.extend(list(y_p))
-                    acc_meter.add(pred, y)
-                    loss_meter.add(loss.item())
-                    for depth, params in enumerate(self.nets[view_id].parameters()):
-                        if params.grad is not None:
-                            grad_meter[depth].add(torch.mean(torch.abs(params.grad)).item())
-
-                self.view_history[view_id]['train_accuracy'].append(acc_meter.value()[0])
-                self.view_history[view_id]['train_loss'].append(loss_meter.value()[0])
-                self.view_history[view_id]['train_IoU'].append(mIou(y_true, y_pred, hyperparams['n_classes']))
-                self.view_history[view_id]['train_kappa'].append(cohen_kappa_score(y_true, y_pred))
-
-                print('Loss {:.4f},  Acc {:.2f},  IoU {:.4f}'.format(\
-                self.view_history[view_id]['train_loss'][-1], self.view_history[view_id]['train_accuracy'][-1], self.view_history[view_id]['train_IoU'][-1]))
-
-                # Validation
-
-                y_true, y_pred = [], []
-                acc_meter      = tnt.meter.ClassErrorMeter(accuracy=True)
-                loss_meter     = tnt.meter.AverageValueMeter()
-
-                self.nets[view_id].eval()
-
-                for (spectra, y) in val_data_loader:
-                    y_true.extend(list(map(int, y)))
-                    spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
-
-                    with torch.no_grad():
-                        prediction = self.nets[view_id](spectra)
-                        loss = self.criterion(prediction, y)
-
-                    acc_meter.add(prediction, y)
-                    loss_meter.add(loss.item())
-                    y_p = prediction.argmax(dim=1).cpu().numpy()
-                    y_pred.extend(list(y_p))
-
-                self.view_history[view_id]['val_accuracy'].append(acc_meter.value()[0])
-                self.view_history[view_id]['val_loss'].append(loss_meter.value()[0])
-                self.view_history[view_id]['val_IoU'].append(mIou(y_true, y_pred, hyperparams['n_classes']))
-                self.view_history[view_id]['val_kappa'].append(cohen_kappa_score(y_true, y_pred))
-
-                print('Validation: Loss {:.4f},  Acc {:.2f},  IoU {:.4f}'.format(\
-                self.view_history[view_id]['val_loss'][-1], self.view_history[view_id]['val_accuracy'][-1], self.view_history[view_id]['val_IoU'][-1]))
-
-        self.history['train_accuracy'] = np.mean(np.array([np.array(self.view_history[view_id]['train_accuracy']) for view_id in range(self.n_views)]), axis=0)
-        self.history['train_loss'] = np.mean(np.array([np.array(self.view_history[view_id]['train_loss']) for view_id in range(self.n_views)]), axis=0)
-        self.history['train_IoU'] = np.mean(np.array([np.array(self.view_history[view_id]['train_IoU']) for view_id in range(self.n_views)]), axis=0)
-        self.history['train_kappa'] = np.mean(np.array([np.array(self.view_history[view_id]['train_kappa']) for view_id in range(self.n_views)]), axis=0)
-
-        self.history['val_accuracy'] = np.mean(np.array([np.array(self.view_history[view_id]['val_accuracy']) for view_id in range(self.n_views)]), axis=0)
-        self.history['val_loss'] = np.mean(np.array([np.array(self.view_history[view_id]['val_loss']) for view_id in range(self.n_views)]), axis=0)
-        self.history['val_IoU'] = np.mean(np.array([np.array(self.view_history[view_id]['val_IoU']) for view_id in range(self.n_views)]), axis=0)
-        self.history['val_kappa'] = np.mean(np.array([np.array(self.view_history[view_id]['val_kappa']) for view_id in range(self.n_views)]), axis=0)
-
-
-    def view_loader(self, data_loader):
-        for data_, _ in data_loader:
-            yield self.create_views(data_)
-
-    def predict_probs(self, data_loader, hyperparams):
-        probs = torch.zeros((self.n_views, hyperparams['pool_size'], hyperparams['n_classes']))
-
-        for batch_id, views in enumerate(self.view_loader(data_loader)):
-            for view_id in views:
-                net = self.nets[view_id]
-                batch_size = hyperparams['batch_size']
-                net.to(hyperparams['device'])
-                net.eval()
-                data = views[view_id].to(hyperparams['device'])
-
-                with torch.no_grad():
-                    probs[view_id, batch_id*batch_size:min(hyperparams['pool_size'], (batch_id+1)*batch_size),:] = \
-                        net(data)
-
-        probs = self.softmax(probs)
-        n_views, N, n_classes = probs.shape
-        probs = probs.reshape(N, n_classes, n_views)
-        return probs
-
-
-#===============================================================================
-#                  Random Forest Classifier
+#                       Random Forest Classifier
+#     Parts of code were taken from https://github.com/ksenia-konyushkova/LAL
 #===============================================================================
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
@@ -1196,7 +1148,6 @@ class LalRegressor(Classifier):
         n_test = test_data.shape[0]
         probs = np.zeros((n_test, config['n_classes']-1, self.nEstimators))
         for i, tree in enumerate(RF.estimators_):
-            # pdb.set_trace()
             probs[:,:,i] = self.map_labels(train_labels, tree.predict_proba(test_data), max_label)
 
         n_dim = test_data.shape[-1]
@@ -1327,177 +1278,3 @@ class LalRegressor(Classifier):
             pred_error_reduction.append(torch.from_numpy(self.regressor.predict(features)))
         pred_error_reduction = torch.cat(pred_error_reduction).numpy()
         return pred_error_reduction
-
-
-
-
-#===============================================================================
-#                  Basic and state-of-the-art neural networks
-#===============================================================================
-
-class fnn(nn.Module):
-    """
-    Fully-connected network
-    """
-
-    def weight_init(self, m):
-        if isinstance(m, nn.Linear):
-            torch.manual_seed(self.seed)
-            torch.cuda.manual_seed(self.seed)
-            init.kaiming_normal_(m.weight)
-            init.zeros_(m.bias)
-
-    def __init__(self, input_channels, n_classes, dropout, seed=None):
-        super(fnn, self).__init__()
-
-        self.fc1 = nn.Linear(input_channels, 100)
-        self.fc2 = nn.Linear(100, 100)
-        # self.fc3 = nn.Linear(2056, 512)
-        # self.fc100 = nn.Linear(512, 256)
-        self.fc5 = nn.Linear(100, n_classes)
-        if seed:
-            self.seed = seed
-        else:
-            self.seed = torch.randint(0, 100, (1,1)).item()
-        self.apply(self.weight_init)
-
-        self.dropout = nn.Dropout(p=dropout)
-
-    def penalty(self, alpha):
-        weights = self.fc1.weight
-        L1_norm = torch.sum(torch.abs(weights))
-        return alpha * L1_norm
-
-    def forward(self, x):
-        x = self.dropout(x)
-        x = F.relu(self.fc1(x))
-        x = self.dropout(x)
-        x = F.relu(self.fc2(x))
-        x = self.dropout(x)
-        x = self.fc5(x)
-        return x
-
-class LiEtAl(nn.Module):
-    """
-    SPECTRAL–SPATIAL CLASSIFICATION OF HYPERSPECTRAL IMAGERY
-            WITH 3D CONVOLUTIONAL NEURAL NETWORK
-    Ying Li, Haokui Zhang and Qiang Shen
-    MDPI Remote Sensing, 2017
-    http://www.mdpi.com/2072-4292/9/1/67
-    """
-    @staticmethod
-    def weight_init(m):
-        if isinstance(m, nn.Linear) or isinstance(m, nn.Conv3d):
-            init.xavier_uniform_(m.weight.data)
-            init.constant_(m.bias.data, 0)
-
-    def __init__(self, input_channels, n_classes, n_planes=2, patch_size=5):
-        super(LiEtAl, self).__init__()
-        self.input_channels = input_channels
-        self.n_planes = n_planes
-        self.patch_size = patch_size
-
-        # The proposed 3D-CNN model has two 3D convolution layers (C1 and C2)
-        # and a fully-connected layer (F1)
-        # we fix the spatial size of the 3D convolution kernels to 3 × 3
-        # while only slightly varying the spectral depth of the kernels
-        # for the Pavia University and Indian Pines scenes, those in C1 and C2
-        # were set to seven and three, respectively
-        self.conv1 = nn.Conv3d(1, n_planes, (7, 3, 3), padding=(1, 0, 0))
-        # the number of kernels in the second convolution layer is set to be
-        # twice as many as that in the first convolution layer
-        self.conv2 = nn.Conv3d(n_planes, 2 * n_planes,
-                               (3, 3, 3), padding=(1, 0, 0))
-        #self.dropout = nn.Dropout(p=0.5)
-        self.features_size = self._get_final_flattened_size()
-
-        self.fc = nn.Linear(self.features_size, n_classes)
-
-        self.apply(self.weight_init)
-
-    def _get_final_flattened_size(self):
-        with torch.no_grad():
-            x = torch.zeros((1, 1, self.input_channels,
-                             self.patch_size, self.patch_size))
-            x = self.conv1(x)
-            x = self.conv2(x)
-            _, t, c, w, h = x.size()
-        return t * c * w * h
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = x.view(-1, self.features_size)
-        #x = self.dropout(x)
-        x = self.fc(x)
-        return x
-
-    def conv(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        return x
-
-
-class HuEtAl(nn.Module):
-    """
-    Deep Convolutional Neural Networks for Hyperspectral Image Classification
-    Wei Hu, Yangyu Huang, Li Wei, Fan Zhang and Hengchao Li
-    Journal of Sensors, Volume 2015 (2015)
-    https://www.hindawi.com/journals/js/2015/258619/
-    """
-
-    def weight_init(self, m):
-        # [All the trainable parameters in our CNN should be initialized to
-        # be a random value between −0.05 and 0.05.]
-        if isinstance(m, nn.Linear) or isinstance(m, nn.Conv1d):
-            torch.manual_seed(self.seed)
-            torch.cuda.manual_seed(self.seed)
-            init.uniform_(m.weight, -0.05, 0.05)
-            init.zeros_(m.bias)
-
-    def _get_final_flattened_size(self):
-        with torch.no_grad():
-            x = torch.zeros(1, 1, self.input_channels)
-            x = self.pool(self.conv(x))
-        return x.numel()
-
-    def __init__(self, input_channels, n_classes, n_convs=20, kernel_size=None, pool_size=None, seed=None, dropout=None):
-        super(HuEtAl, self).__init__()
-        if kernel_size is None:
-           # [In our experiments, k1 is better to be [ceil](n1/9)]
-           kernel_size = math.ceil(input_channels / 9)
-        if pool_size is None:
-           # The authors recommand that k2's value is chosen so that the pooled features have 30~40 values
-           # ceil(kernel_size/5) gives the same values as in the paper so let's assume it's okay
-           pool_size = math.ceil(kernel_size / 5)
-        self.input_channels = input_channels
-
-        # [The first hidden convolution layer C1 filters the n1 x 1 input data with 20 kernels of size k1 x 1]
-        self.conv = nn.Conv1d(1, n_convs, kernel_size)
-        self.pool = nn.MaxPool1d(pool_size)
-        self.features_size = self._get_final_flattened_size()
-        # [n4 is set to be 100]
-        self.fc1 = nn.Linear(self.features_size, 100)
-        self.fc2 = nn.Linear(100, n_classes)
-        if seed:
-            self.seed = seed
-        else:
-            self.seed = torch.randint(0, 100, (1,1)).item()
-
-        if dropout:
-            self.dropout = nn.Dropout(p=dropout)
-        else:
-            self.dropout = nn.Dropout(p=0)
-        self.apply(self.weight_init)
-
-    def forward(self, x):
-        # [In our design architecture, we choose the hyperbolic tangent function tanh(u)]
-        x = x.unsqueeze(1)
-        x = self.conv(x)
-        x = torch.tanh(self.pool(x))
-        x = x.view(-1, self.features_size)
-        x = self.dropout(x)
-        x = torch.tanh(self.fc1(x))
-        x = self.dropout(x)
-        x = self.fc2(x)
-        return x

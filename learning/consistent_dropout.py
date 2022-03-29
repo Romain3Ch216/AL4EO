@@ -1,3 +1,5 @@
+# Credits to https://github.com/ElementAI/baal
+
 import copy
 import warnings
 

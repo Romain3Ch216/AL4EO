@@ -1,6 +1,7 @@
+# Credits to https://github.com/VSainteuf/lightweight-temporal-attention-pytorch/blob/master/learning/metrics.py
+
 import numpy as np
 import pandas as pd
-
 
 def mIou(y_true, y_pred, n_classes):
     """
@@ -30,5 +31,4 @@ def mIou(y_true, y_pred, n_classes):
             iou += inter / union
             per_class.append((i, inter/union))
 
-    # print(n_classes, n_observed, per_class)
     return iou / n_observed
