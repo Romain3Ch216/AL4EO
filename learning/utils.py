@@ -207,55 +207,6 @@ def build_dataset(mat, gt, ignored_labels=None):
             samples += list(mat[indices])
             labels += len(indices[0]) * [label]
     return np.asarray(samples), np.asarray(labels)
-#
-# def load_data_as_tensors(img, train_gt, val_gt, kwargs):
-#     train_set = build_dataset(img, train_gt, kwargs['ignored_labels'])
-#     val_set = build_dataset(img, val_gt, kwargs['ignored_labels'])
-#     return train_set, val_set
-#
-# def load_multi_view_data(views, train_gt, val_gt, kwargs):
-#     train_sets, val_sets = {}, {}
-#     for id, view in views.items():
-#         train_sets[id], val_sets[id] = load_data_as_tensors(view, train_gt, val_gt, kwargs)
-#     return train_sets, val_sets
-#
-# def load_data(img, train_gt, val_gt, kwargs):
-#     train_dataset = HyperX(img, train_gt, **kwargs)
-#     train_loader  = data.DataLoader(train_dataset,shuffle=True,
-#                               batch_size=kwargs['batch_size'])
-#
-#     val_dataset = HyperX(img, val_gt, **kwargs)
-#     val_loader  = data.DataLoader(val_dataset,shuffle=True,
-#                               batch_size=kwargs['batch_size'])
-#     return train_loader, val_loader
-#
-# def probs_to_regions(probs):
-#     assert type(probs) == type(np.zeros(1)), 'arg must be a numpy array'
-#     if len(probs.shape) == 3:
-#         probs = np.expand_dims(probs, axis=0)
-#     regions = np.argmax(probs, axis=-1)
-#     regions = torch.from_numpy(regions)
-#     regions, _ = torch.mode(regions, dim=0)
-#     regions = regions.numpy()
-#     return regions
-#
-# def perform_acp(img, gt, n_components):
-#     """ Peforms a Principal Component Analysis based on the provided gt
-#     * Args:
-#         - img: 3D npy array
-#         - gt: 2D npy array
-#         - n_components: number of principal components
-#     * Outputs:
-#         - spectra: 2D array, projected spectra used for PCA
-#         - proj_img: 3D array, projected image
-#     """
-#     spectra = img[gt!=0]
-#     pca = PCA(n_components=n_components)
-#     pca.fit(spectra)
-#     proj_img = np.dot(img.reshape(-1, img.shape[-1]), pca.components_.T)
-#     spectra = np.dot(spectra, pca.components_.T)
-#     proj_img = proj_img.reshape((img.shape[0], img.shape[1], -1))
-#     return spectra, proj_img, pca
 
 
 def sliding_window(image, step=10, window_size=(20, 20), with_data=True):
