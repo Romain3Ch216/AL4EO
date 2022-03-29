@@ -20,7 +20,8 @@ class ActiveLearningFramework:
         self.config = config
 
         self.step_ = 0
-        self.config['timestamp'] = time.strftime("%y_%m_%d_%H_%M")
+        if 'timestamp' not in self.config:
+            self.config['timestamp'] = time.strftime("%y_%m_%d_%H_%M")
 
         self.history = { 'coordinates': [],
                          'labels': []
@@ -30,8 +31,10 @@ class ActiveLearningFramework:
         self.n_classes = len(self.classes.keys())
         self.n_px = config['n_px']
         self.res_dir = config['res_dir']
+        self.queried_clusters = None
+        self.score_map = None
 
-        if self.config['restore']:
+        if 'restore' in self.config:
             print('Restore history...')
             self.restore()
 
@@ -50,16 +53,10 @@ class ActiveLearningFramework:
         print('Computing heuristic...')
         start_query_time = time.time()
         train_data = self.dataset.train_data
-        if self.config['benchmark']:# or self.config['opening']:
+
+        if self.config['superpixels']:
             pool = self.dataset.pool_data()
-            #pdb.set_trace()
-            ranks = self.query(self.model, pool, train_data)
-            self.coordinates = self.dataset.pool.coordinates.T[ranks]
-            score = self.query.score
-        else:
-            print('Clustering...')
-            pool = self.dataset.pool_data()
-            self.dataset.segmented_pool(pool[0], pool[1], self.queried_clusters)
+            self.dataset.pool_segmentation_(pool[0], pool[1], self.queried_clusters)
             pool, cluster_ids, clusters = self.dataset.spectra, self.dataset.cluster_ids, self.dataset.clusters
             pool = pool, np.arange(pool.shape[0])
             ranks = self.query(self.model, pool, train_data)
@@ -80,11 +77,19 @@ class ActiveLearningFramework:
                 score_map = np.zeros_like(self.dataset.train_gt.gt).astype(float)
                 coord = tuple((self.dataset.pool.coordinates[0], self.dataset.pool.coordinates[1]))
                 score_map[coord] = score
+
+        else:
+            pool = self.dataset.pool_data()
+            ranks = self.query(self.model, pool, train_data)
+            self.coordinates = self.dataset.pool.coordinates.T[ranks]
+            score = self.query.score
+
+        
         
         query_time = time.time() - start_query_time
         f.writelines(['{} {} {} {}\n'.format(self.step_, training_time, query_time, pool[0].shape[0])])
         f.close()
-        sampling_time = time.time() - start_time
+
         self.history['coordinates'].extend(list(self.coordinates))
         self.step_ += 1
 
@@ -122,13 +127,14 @@ class ActiveLearningFramework:
           open(os.path.join(self.res_dir, 'history_{}.pkl'.format(self.config['timestamp'])), 'wb'))
 
     def restore(self):
-        with open(self.config['restore'], 'rb') as f:
-            self.dataset.train_gt, self.classes, self.history, self.history, self.config['timestamp'] = pkl.load(f)
+        raise NotImplementedError()
+        # with open(self.config['restore'], 'rb') as f:
+        #     self.dataset.train_gt, self.classes, self.history, self.history, self.config['timestamp'] = pkl.load(f)
 
-        self.step_ = self.history['iteration'][-1]
-        self.config['n_classes'] = self.n_classes
-        self.config['classes'] = np.arange(1, self.n_classes)
-        self.model, self.query, self.config = load_query(self.config, self.dataset)
+        # self.step_ = self.history['iteration'][-1]
+        # self.config['n_classes'] = self.n_classes
+        # self.config['classes'] = np.arange(1, self.n_classes)
+        # self.model, self.query, self.config = load_query(self.config, self.dataset)
 
     def init_step(self):
         self.config['pool_size'] = self.dataset.pool.size

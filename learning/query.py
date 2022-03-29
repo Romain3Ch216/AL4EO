@@ -36,7 +36,6 @@ class Query:
         self.shuffle_prop = shuffle_prop
         self.reverse = reverse
         self.hyperparams = hyperparams
-        self.all_ = (not hyperparams['benchmark'])
         self.score = None
         self.use_cuda = True if hyperparams['device'] == 'cuda' else False
 
@@ -1381,8 +1380,7 @@ def load_query(config, dataset):
         lr = config.setdefault('learning_rate', 0.01)
         config.setdefault('num_samples', 30)
         config.setdefault('num_draw', 100)
-        #net = BayesianHuEtAl(dataset.n_bands, dataset.n_classes)
-        net = fnn(dataset.n_bands, dataset.n_classes, dropout=0.5)
+        net = HuEtAl(dataset.n_bands, dataset.n_classes, dropout=0.5)
         net = MCConsistentDropoutModule(net)
         optimizer = optim.Adam(net.parameters(), lr=lr, weight_decay=config['weight_decay'])
         config['optimizer'] = optimizer
@@ -1396,13 +1394,7 @@ def load_query(config, dataset):
         config.setdefault('batch_size', 128)
         lr = config.setdefault('learning_rate', 0.01)
         config.setdefault('num_samples', 30)
-        #net = BayesianHuEtAl(dataset.n_bands, dataset.n_classes)
-        # net = fnn(dataset.n_bands, dataset.n_classes, dropout=0.5)
-        if config['model'] == 'fnn':
-            net = fnn(dataset.n_bands, dataset.n_classes, dropout=0.5)
-        else:
-            net = HuEtAl(dataset.n_bands, dataset.n_classes, dropout=0.5)
-        # net = HuEtAl(dataset.n_bands, dataset.n_classes, dropout=0.5)
+        net = HuEtAl(dataset.n_bands, dataset.n_classes, dropout=0.5)
         net = MCConsistentDropoutModule(net)
         optimizer = optim.Adam(net.parameters(), lr=lr, weight_decay=config['weight_decay'])
         config['optimizer'] = optimizer
@@ -1415,10 +1407,7 @@ def load_query(config, dataset):
         config.setdefault('batch_size', 128)
         config.setdefault('weight_decay', 0)
         lr = config.setdefault('learning_rate', 0.01)
-        if config['model'] == 'fnn':
-            net = fnn(dataset.n_bands, dataset.n_classes, dropout=0)
-        else:
-            net = HuEtAl(dataset.n_bands, dataset.n_classes)
+        net = HuEtAl(dataset.n_bands, dataset.n_classes)
         net = net.to(config['device'])
         optimizer = optim.Adam(net.parameters(), lr=lr, weight_decay=config['weight_decay'])
         criterion = nn.CrossEntropyLoss(weight=config['weights'])
@@ -1432,7 +1421,6 @@ def load_query(config, dataset):
         config.setdefault('outlier_prop', 1e-4)
         lr = config.setdefault('learning_rate', 0.01)
         net = HuEtAl(dataset.n_bands, dataset.n_classes)
-        # model = Classifier()
         optimizer = optim.Adam(net.parameters(), lr=lr, weight_decay=config['weight_decay'])
         criterion = nn.CrossEntropyLoss(weight=config['weights'])
         config.setdefault('scheduler', optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=config['epochs']//4, verbose=True))

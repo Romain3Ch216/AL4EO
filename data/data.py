@@ -115,9 +115,9 @@ class Dataset:
     def load_numpy(self, img_pth, gt_pth, normalization=True, copy=True):
         self.img = np.load(img_pth)
 
-        if self.hyperparams['opening']:
-            print("Apply morphological profiles...")
-            self.MP()
+        if self.hyperparams['edge_detection'] > 0:
+            print("Apply edge detection...")
+            self.edge_detection_(threshold=self.hyperparams['edge_detection'])
 
         #Filters NaN values
         nan_mask = np.isnan(self.img.sum(axis=-1))
@@ -149,7 +149,7 @@ class Dataset:
             self.train_gt.gt[mask] = 0
             self.pool.gt[mask] = class_id
 
-    def EdgeDetection(self, threshold=0.1, radius=1):
+    def edge_detection_(self, threshold=0.1, radius=1):
         edges = sobel(np.mean(self.img, axis=-1))
         mask = edges > threshold
         mask = closing(mask, disk(radius))
