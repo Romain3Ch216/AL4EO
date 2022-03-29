@@ -7,7 +7,7 @@ import os
 file = sys.argv[1]
 
 path = file[:-26] + 'figures_' + file[-18:-4]
-
+fontsize = 15
 try:
     os.makedirs(path, exist_ok=True)
 except OSError as exc:
@@ -21,8 +21,10 @@ with open(file, 'rb') as f:
 for metric in ['OA', 'mIoU']:
 	fig = plt.figure()
 	plt.plot(accuracy_metrics_[metric])
-	plt.ylabel(metric)
-	plt.xlabel('Steps')
+	plt.ylabel(metric, fontsize=fontsize)
+	plt.xlabel('Steps', fontsize=fontsize)
+	plt.xticks(fontsize=fontsize)
+	plt.yticks(fontsize=fontsize)
 	fig.savefig(path + '/{}.png'.format(metric), dpi=300, bbox_inches = 'tight', pad_inches = 0.05)
 
 
@@ -39,8 +41,8 @@ plt.bar(x, height=proportions_of_added_pixels_[:,steps[2]], color=color_3, alpha
 plt.bar(x, height=proportions_of_added_pixels_[:,steps[1]], color=color_2, alpha=1)
 plt.bar(x, height=proportions_of_added_pixels_[:,steps[0]], color=color_1, alpha=1)
 plt.ylim(0, y_lim)
-plt.xticks(x, x, rotation=45, fontsize=15)
-plt.yticks(fontsize=15)
-plt.ylabel('Proportions of added labels')
-plt.xlabel('Classes')
+plt.xticks(x, x, rotation=45, fontsize=fontsize)
+plt.yticks(fontsize=fontsize)
+plt.ylabel('Proportions of added labels', fontsize=fontsize)
+plt.xlabel('Classes', fontsize=fontsize)
 plt.savefig(path + '/added_classes.png', dpi=300, bbox_inches = 'tight', pad_inches = 0.05)
