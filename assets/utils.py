@@ -30,19 +30,6 @@ def spectra_bbm(spectra, mask_bands):
     res[:, mask_bands==False] = np.nan
     return res
 
-def classes_stats(train_gt, added, n_steps, n_px_per_class):
-    #classes = np.unique(train_gt.gt)
-    classes = np.arange(0, train_gt.gt.max()+1)
-    labels = added['labels']
-    added_classes = np.zeros((len(classes)-1, n_steps))
-    n_px = len(labels)//n_steps
-    for step in range(n_steps):
-        added = labels[step*n_px:(step+1)*n_px]
-        for class_id in np.unique(added):
-            added_classes[class_id-1, step] = sum(added == class_id)
-    added_classes = np.cumsum(added_classes, axis=1)
-    return  added_classes / n_px_per_class.reshape(-1,1)
-
 def make_gt(added, dataset, step, n_px):
     coordinates, class_ids = added['coordinates'], added['labels']
     coordinates = np.array(coordinates)

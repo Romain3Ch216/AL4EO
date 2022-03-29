@@ -153,6 +153,7 @@ class NeuralNetwork(Classifier):
 
     def predict_probs(self, data_loader, hyperparams):
         self.net.to(hyperparams['device'])
+        self.net.load_state_dict(self.best_state)
         self.net.eval()
         probs = []
         for batch_id, (data, _) in enumerate(data_loader):
@@ -165,6 +166,8 @@ class NeuralNetwork(Classifier):
 
     def map(self, dataset, hyperparams):
         self.net.to(hyperparams['device'])
+        self.net.load_state_dict(self.best_state)
+        self.net.eval()
         img = torch.from_numpy(dataset.img)
         h, w, b = img.shape
         img = img.reshape(-1, b)
@@ -377,6 +380,42 @@ class HuEtAl(nn.Module):
         x = self.dropout(x)
         x = self.fc2(x)
         return x
+
+#===============================================================================
+#                               SVM Classifier
+#===============================================================================
+
+class SVM(Classifier):
+    def __init__(self, svm_params={"kernel": "rbf", "gamma": 0.1, "C": 1000}):
+        super().__init__()
+        self.svm_params = svm_params
+        self.svm_params['probability'] = True
+        self.svm = None
+
+    def train(self, dataset, hyperparams):
+        X_train, y_train = dataset.train_data
+        self.svm = SVC(**self.svm_params)
+        self.svm.fit(X_train, y_train)
+
+    def predict_probs(self, data_loader, hyperparams):
+        probs = []
+        for batch_id, (data, _) in enumerate(data_loader):
+            probs_ = self.svm.predict_proba(data)
+            probs.append(torch.from_numpy(probs_))
+        probs = torch.cat(probs)
+        probs = torch.softmax(probs, dim=-1)
+        return probs
+
+    def evaluate(self, dataset, hyperparams):
+        X_test, y_true = dataset.test_data
+        y_pred = self.svm.predict(X_test)
+
+        metrics = {'test_accuracy': (y_pred == y_true).mean(),
+                   'test_IoU': mIou(y_true, y_pred, hyperparams['n_classes']),
+                   'test_kappa': cohen_kappa_score(y_true, y_pred)}
+
+
+        return metrics, confusion_matrix(y_true, y_pred, labels=list(range(hyperparams['n_classes'])))
 
 #===============================================================================
 #                         Multi View Classifier

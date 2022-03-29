@@ -20,24 +20,11 @@ class ActiveLearningFramework:
         self.config = config
 
         self.step_ = 0
-        self.timestamp = time.strftime("%y_%m_%d_%H_%M")
+        self.config['timestamp'] = time.strftime("%y_%m_%d_%H_%M")
 
-        self.history = { 'iteration': [],
-                         'train_loss': [],
-                         'val_loss': [],
-                         'train_accuracy': [],
-                         'val_accuracy': [],
-                         'train_IoU': [],
-                         'val_IoU': [],
-                         'batch_variance': [],
-                         'sampling_time': [],
-                         'training_time': []
-                         }
-
-        self.added = {
-            'coordinates': [],
-            'labels': []
-        }
+        self.history = { 'coordinates': [],
+                         'labels': []
+                        }
 
         self.init_classes()
         self.n_classes = len(self.classes.keys())
@@ -64,7 +51,7 @@ class ActiveLearningFramework:
         start_query_time = time.time()
         train_data = self.dataset.train_data
         if self.config['benchmark']:# or self.config['opening']:
-            pool = self.dataset.pool_data
+            pool = self.dataset.pool_data()
             #pdb.set_trace()
             ranks = self.query(self.model, pool, train_data)
             self.coordinates = self.dataset.pool.coordinates.T[ranks]
@@ -98,53 +85,19 @@ class ActiveLearningFramework:
         f.writelines(['{} {} {} {}\n'.format(self.step_, training_time, query_time, pool[0].shape[0])])
         f.close()
         sampling_time = time.time() - start_time
-        self.added['coordinates'].extend(list(self.coordinates))
+        self.history['coordinates'].extend(list(self.coordinates))
         self.step_ += 1
-        self.update_history(self.model.history, self.coordinates, training_time, sampling_time)
-
-        #self.save_query()
 
     def oracle(self):
         coordinates = tuple((self.coordinates[:,0], self.coordinates[:,1]))
         labels = self.dataset.pool.gt[coordinates]
         self.dataset.train_gt.add(coordinates, labels)
         added_labels = self.dataset.GT['labeled_pool'][coordinates]
-        self.added['labels'].extend(added_labels)
+        self.history['labels'].extend(added_labels)
         self.dataset.pool.remove(coordinates)
-        self.query.hyperparams['classes'] = np.unique(self.dataset.train_gt())[1:]
-        self.query.hyperparams['proportions'] = self.dataset.proportions
-        self.config['classes'] = np.unique(self.dataset.train_gt())[1:]
-        self.config['proportions'] = self.dataset.proportions
-
-    def update_history(self, history, coordinates, training_time, sampling_time):
-        history = dict((k, v[-1]) for k, v in history.items())
-
-        self.history['iteration'].append(self.step_)
-        self.history['train_loss'].append(round(history['train_loss'], 2))
-        self.history['train_accuracy'].append(round(history['train_accuracy'], 2))
-        self.history['train_IoU'].append(round(history['train_IoU'], 2))
-
-        self.history['val_loss'].append(round(history['val_loss'],2))
-        self.history['val_accuracy'].append(round(history['val_accuracy'],2))
-        self.history['val_IoU'].append(round(history['val_IoU'],2))
-
-        self.history['batch_variance'].append(round(self.batch_variance(coordinates), 2))
-        self.history['sampling_time'].append(round(sampling_time/60, 2))
-        self.history['training_time'].append(round(training_time/60, 2))
-
-    def batch_variance(self, coordinates):
-        coordinates = tuple((coordinates[:,0], coordinates[:,1]))
-        spectra = self.dataset.IMG[coordinates]
-        variance = np.sum(np.var(spectra, axis=0))
-        return variance
-
-    def display(self, coordinates):
-        self.regions = np.zeros_like(self.dataset.GT['train'])
-        self.coordinates = coordinates
-        self.patch_id = 0
-        self.patches, self.patch_coordinates = window(self.dataset.IMG, coordinates)
-        # self.score, _ = window(self.query.score.reshape(self.dataset.IMG.shape[:-1]), coordinates)
-        self.regions, _ = window(self.regions, coordinates)
+        updated_classes_ = np.unique(self.dataset.train_gt())[1:]
+        self.query.hyperparams['classes'] = updated_classes_
+        self.config['classes'] = updated_classes_
 
     def init_classes(self):
         self.classes = {}
@@ -165,12 +118,12 @@ class ActiveLearningFramework:
             del self.config['scheduler']
         if 'weights' in self.config:
             del self.config['weights']
-        pkl.dump((self.dataset.train_gt, self.classes, self.added, self.history, self.timestamp, self.config),\
-          open(os.path.join(self.res_dir, 'history_{}.pkl'.format(self.timestamp)), 'wb'))
+        pkl.dump((self.history, self.classes, self.config),\
+          open(os.path.join(self.res_dir, 'history_{}.pkl'.format(self.config['timestamp'])), 'wb'))
 
     def restore(self):
         with open(self.config['restore'], 'rb') as f:
-            self.dataset.train_gt, self.classes, self.added, self.history, self.timestamp = pkl.load(f)
+            self.dataset.train_gt, self.classes, self.history, self.history, self.config['timestamp'] = pkl.load(f)
 
         self.step_ = self.history['iteration'][-1]
         self.config['n_classes'] = self.n_classes
@@ -180,10 +133,3 @@ class ActiveLearningFramework:
     def init_step(self):
         self.config['pool_size'] = self.dataset.pool.size
 
-    def save_query(self):
-        if 'scheduler' in self.config:
-            del self.config['scheduler']
-        if 'weights' in self.config:
-            del self.config['weights']
-        pkl.dump((self.history, self.classes, self.query.score, self.coordinates, self.dataset.train_gt, self.config, self.timestamp) ,\
-            open(os.path.join(self.config['res_dir'], 'query_{}_step_{}.pkl'.format(self.timestamp, self.step_)), 'wb'))
