@@ -36,7 +36,7 @@ SENSORS = {
              'masked_bands': None,
              'wavelengths': '{}/Sensors/ITER/wavelengths.npy'.format(get_path()),
              'wv_unit': 'nm',
-             'rgb_bands': (50, 20, 10),
+             'rgb_bands': (21, 14, 6),
              'GSD': None},
 
     'toy_sensor': {'name': 'TOY',

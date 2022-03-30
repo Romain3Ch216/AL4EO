@@ -14,11 +14,10 @@ DATASETS_CONFIG = {
         'sensor': 'ITRES',
         'ignored_labels': [0],
         'palette': None,
-        'img_pth': '{}/Datasets/Houston/houston.npy'.format(get_path()),
-        'gt_pth': {'train': '{}/Datasets/Houston/initial_gt.npy'.format(get_path()),
-                   'val': '{}/Datasets/Houston/val_gt.npy'.format(get_path()),
-                   'test': '{}/Datasets/Houston/test_gt.npy'.format(get_path()),
-                   'labeled_pool': '{}/Datasets/Houston/labeled_pool.npy'.format(get_path())
+        'img_pth': '{}/Datasets/houston/houston.npy'.format(get_path()),
+        'gt_pth': {'train': dict((i, '{}/Datasets/houston/gt{}/initial_gt.npy'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35]),
+                   'test': dict((i, '{}/Datasets/houston/gt{}/test_gt.npy'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35]),
+                   'labeled_pool': dict((i, '{}/Datasets/houston/gt{}/labeled_pool.npy'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35])
         }
     },
 

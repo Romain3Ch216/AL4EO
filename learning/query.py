@@ -1130,7 +1130,7 @@ class HierarchicalClusterAL(Query):
     if self.subsample:
         indices = subsample_idx[indices]
     return indices
-
+    
 #===============================================================================
 #                          Performance based Active Learning
 #===============================================================================

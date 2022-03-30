@@ -13,7 +13,6 @@ import pdb
 from tqdm import tqdm
 import copy
 from learning.utils import sliding_window, count_sliding_window, grouper
-from assets.utils import get_indices_as_array
 from sklearn.svm import SVC
 
 

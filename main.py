@@ -7,12 +7,12 @@ from learning.session import ActiveLearningFramework
 from data.datasets import get_dataset, DATASETS_CONFIG
 import pprint
 import pdb
-from assets.utils import *
 from learning.query import load_query
 import os
 import errno
 from path import get_path
 import torch
+import numpy as np
 import ast
 
 # Argument parser for CLI interaction
@@ -94,6 +94,7 @@ except OSError as exc:
 model, query, config = load_query(config, dataset)
 AL = ActiveLearningFramework(dataset, model, query, config)
 
+pdb.set_trace()
 
 for step in range(args.steps):
     print(f'==== STEP {step} ====')
