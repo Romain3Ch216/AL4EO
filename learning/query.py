@@ -795,8 +795,13 @@ class HierarchicalClusterAL(Query):
       self.model = clustering
       self.already_clustered = True
     self.beta = hyperparams['beta']
+    self.init_at_each_step = False 
 
-    # X = dataset.img.reshape(-1, dataset.img.shape[-1])
+    if hyperparams['superpixels'] or hyperparams['subsample']:
+        self.init_at_each_step = True
+    else:
+        self.initialize_hierarchy(dataset.train_data, dataset.pool_data)
+
 
   def initialize_hierarchy(self, train_data, pool_data):
     self.n_leaves = None
@@ -822,9 +827,6 @@ class HierarchicalClusterAL(Query):
     self.already_clustered = False
     start_time = time.time()
     if self.max_features is not None and self.X.shape[1] > self.max_features:
-      # transformer = PCA(n_components=max_features)
-      # transformer.fit(X)
-      # self.transformed_X = transformer.fit_transform(X)
       pca  = PCA(n_components=self.max_features)
       samples = np.copy(self.X)
       np.random.shuffle(samples)
@@ -986,7 +988,6 @@ class HierarchicalClusterAL(Query):
   def update_scores(self):
     node_list = set(range(self.n_leaves))
     # Loop through generations from bottom to top
-    # pdb.set_trace()
     while len(node_list) > 0:
       parents = set()
       for v in node_list:
@@ -1065,7 +1066,6 @@ class HierarchicalClusterAL(Query):
 
   def select_batch_(self, N, already_selected, labeled, y, **kwargs):
     # Observe labels for previously recommended batches
-    # pdb.set_trace()
     self.observe_labels(labeled)
 
     if not self.initialized:
@@ -1107,8 +1107,9 @@ class HierarchicalClusterAL(Query):
     return output
 
   def __call__(self, model, pool, train_data):
-    x_pool, pool_labels = pool
+
     if self.subsample:
+        x_pool, pool_labels = pool
         subsample_num = int(self.subsample*x_pool.shape[0])
         print('Subsampling... {} samples'.format(subsample_num))
         subsample_idx = np.random.choice(np.arange(x_pool.shape[0]), subsample_num, replace=False)
@@ -1116,19 +1117,22 @@ class HierarchicalClusterAL(Query):
         pool_labels = pool_labels[subsample_idx]
         pool = x_pool, pool_labels
 
-    self.initialize_hierarchy(train_data, pool)
+    if self.init_at_each_step:
+        self.initialize_hierarchy(train_data, pool)
+
     _, y_train = train_data
     _, y_pool = pool
     already_selected = np.arange(len(y_train))
-    # pdb.set_trace()
     labeled = {}
     for selected in already_selected:
       labeled[selected] = y_train[selected]
     y = self.y
     indices = self.select_batch_(self.n_px, already_selected, labeled, y)
     indices = np.array(indices) - len(y_train)
+
     if self.subsample:
         indices = subsample_idx[indices]
+
     return indices
     
 #===============================================================================
@@ -1442,14 +1446,7 @@ def load_query(config, dataset):
         query = BatchBALD(config['n_px'], config, shuffle_prop=0)
 
     elif config['query'] == 'hierarchical':
-        config.setdefault('batch_size', 128)
-        config.setdefault('weight_decay', 0)
-        lr = config.setdefault('learning_rate', 0.01)
-        net = HuEtAl(dataset.n_bands, dataset.n_classes)
-        optimizer = optim.Adam(net.parameters(), lr=lr, weight_decay=config['weight_decay'])
-        criterion = nn.CrossEntropyLoss(weight=config['weights'])
-        config.setdefault('scheduler', optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=config['epochs']//4, verbose=True))
-        model = NeuralNetwork(net, optimizer, criterion)
+        model = Classifier()
         config.setdefault('beta', 2)
         query = HierarchicalClusterAL(config['n_px'], config, 0, dataset, 3)
 

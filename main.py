@@ -94,8 +94,6 @@ except OSError as exc:
 model, query, config = load_query(config, dataset)
 AL = ActiveLearningFramework(dataset, model, query, config)
 
-pdb.set_trace()
-
 for step in range(args.steps):
     print(f'==== STEP {step} ====')
     AL.step()

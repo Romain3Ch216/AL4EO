@@ -53,9 +53,10 @@ class ActiveLearningFramework:
         print('Computing heuristic...')
         start_query_time = time.time()
         train_data = self.dataset.train_data
+        pool = self.dataset.pool_data
+
 
         if self.config['superpixels']:
-            pool = self.dataset.pool_data()
             self.dataset.pool_segmentation_(pool[0], pool[1], self.queried_clusters)
             pool, cluster_ids, clusters = self.dataset.spectra, self.dataset.cluster_ids, self.dataset.clusters
             pool = pool, np.arange(pool.shape[0])
@@ -79,7 +80,6 @@ class ActiveLearningFramework:
                 score_map[coord] = score
 
         else:
-            pool = self.dataset.pool_data()
             ranks = self.query(self.model, pool, train_data)
             self.coordinates = self.dataset.pool.coordinates.T[ranks]
             score = self.query.score

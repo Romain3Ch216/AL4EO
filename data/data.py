@@ -211,9 +211,10 @@ class Dataset:
         else:
             for j, cluster_id in enumerate(queried_clusters):
                 cluster_id = self.cluster_ids[cluster_id]
-                if (clusters == cluster_id).sum() < min_size:
-                   self.mask[list(self.cluster_ids).index(cluster_id)] = False
-                self.spectra[list(self.cluster_ids).index(cluster_id),:] = np.mean(x_pool[clusters==cluster_id], axis=0)
+                if (clusters == cluster_id).sum() == 0 or (clusters == cluster_id).sum() < min_size:
+                    self.mask[list(self.cluster_ids).index(cluster_id)] = False
+                else:
+                    self.spectra[list(self.cluster_ids).index(cluster_id),:] = np.mean(x_pool[clusters==cluster_id], axis=0)
 
         self.cluster_ids = self.cluster_ids[self.mask]
         self.spectra = np.array(self.spectra, dtype=np.float32)
@@ -228,14 +229,10 @@ class Dataset:
         labels = self.train_gt.labels
         return data, labels
 
-    def pool_data(self, seg=False):
-        if seg and self.segmentation is not None:
-            data = self.data(self.pool())
-            labels = self.pool.labels
-            data, labels, _ = self.segmented_pool(data, labels)
-        else:
-            data = self.data(self.pool())
-            labels = self.pool.labels
+    @property
+    def pool_data(self):
+        data = self.data(self.pool())
+        labels = self.pool.labels
         return data, labels
 
     @property
