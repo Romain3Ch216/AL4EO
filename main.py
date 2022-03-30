@@ -55,8 +55,6 @@ training_options.add_argument('--batch_size', type=int, help="Batch size")
 training_options.add_argument('--num_samples', type=int, help='Number of samples drawn from bayesian model', default=10)
 
 
-
-
 args = parser.parse_args()
 config = parser.parse_args()
 config = vars(config)
@@ -66,6 +64,8 @@ if config['tau']:
 
 if config['subsample'] == 1:
     config['subsample'] = False
+
+assert config['subsample'] and (config['query'] in ['coreset', 'hierarchical']), "Subsampling is only available for Hierarchical and Coreset."
 
 config['remove'] = ast.literal_eval(config['remove'])
 
