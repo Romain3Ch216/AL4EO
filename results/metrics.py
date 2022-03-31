@@ -90,3 +90,4 @@ def confusion_matrix_analysis(mat):
     overall['Accuracy'] = round((100 * np.sum(np.diag(mat)) / np.sum(mat)), 1)
 
     return per_class, overall
+

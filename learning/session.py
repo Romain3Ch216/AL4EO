@@ -123,18 +123,23 @@ class ActiveLearningFramework:
             del self.config['scheduler']
         if 'weights' in self.config:
             del self.config['weights']
-        pkl.dump((self.history, self.classes, self.config),\
-          open(os.path.join(self.res_dir, 'history_{}.pkl'.format(self.config['timestamp'])), 'wb'))
+        if 'step' in self.config:
+            pkl.dump((self.history, self.classes, self.config),\
+              open(os.path.join(self.res_dir, 'history_{}_step_{}.pkl'.format(self.config['timestamp'], self.config['step'])), 'wb'))
+        else:
+            pkl.dump((self.history, self.classes, self.config),\
+              open(os.path.join(self.res_dir, 'history_{}.pkl'.format(self.config['timestamp'])), 'wb'))
 
     def restore(self):
-        raise NotImplementedError()
-        # with open(self.config['restore'], 'rb') as f:
-        #     self.dataset.train_gt, self.classes, self.history, self.history, self.config['timestamp'] = pkl.load(f)
+        with open(self.config['restore'], 'rb') as f:
+            self.dataset.train_gt, self.classes, self.history, self.config = pkl.load(f)
 
-        # self.step_ = self.history['iteration'][-1]
-        # self.config['n_classes'] = self.n_classes
-        # self.config['classes'] = np.arange(1, self.n_classes)
-        # self.model, self.query, self.config = load_query(self.config, self.dataset)
+        self.dataset.label_values = [item['label'] for item in self.classes.values()]
+        n_classes = len(self.dataset.label_values)
+        self.dataset.n_classes = n_classes 
+        self.config['n_classes'] = n_classes
+        self.model, self.query, self.config = load_query(self.config, self.dataset)
+
 
     def init_step(self):
         self.config['pool_size'] = self.dataset.pool.size

@@ -1320,20 +1320,26 @@ class QueryOutput:
     """
     Class that restore the results of the query
     """
-    def __init__(self, history, classes, coordinates, timestamp, config):
+    def __init__(self, dataset, history, classes, config):
+        self.dataset = dataset
         self.history = history
         self.classes  = classes
-        self.coordinates = coordinates
-        self.step_ = history['iteration'][-1]
-        self.added = {
-            'coordinates': [],
-            'labels': []
-        }
+        self.config = config
+
+        coordinates = np.array(history['coordinates'][:(config['step']-1)*config['n_px']])
+        coordinates = tuple((coordinates[:,0], coordinates[:,1]))
+        self.dataset.train_gt.gt[coordinates] = np.array(history['labels'][:(config['step']-1)*config['n_px']])
+        self.dataset.label_values = [item['label'] for item in self.classes.values()]
+        self.dataset.n_classes = len(self.dataset.label_values)
+        self.coordinates = np.array(history['coordinates'][-config['n_px']:])
+        self.step_ = config['step']
         self.res_dir = config['res_dir']
-        self.timestamp = timestamp
+        self.timestamp = config['timestamp']
 
         self.n_added = 0
         self.n_px = config['n_px']
+
+        self.annotation = None
 
 
     def patches_(self):
@@ -1345,8 +1351,24 @@ class QueryOutput:
     def update_classes(self, new_label_id):
         self.classes[new_label_id]['added_px'] += 1
 
+    def label(self):
+        self.history['labels'].append(self.annotation)
+        self.dataset.train_gt.gt[self.x, self.y] = self.annotation
+        self.update_classes(self.annotation)
+
+    def add_class(self, new_class):
+        self.dataset.label_values.append(new_class)
+        self.dataset.n_classes += 1
+        class_id = len(self.dataset.label_values) - 1
+        self.classes[class_id] = {}
+        self.classes[class_id]['label'] = new_class
+        self.classes[class_id]['nb_px'] = 0
+        self.classes[class_id]['added_px'] = 0
+        self.classes[class_id]['pseudo_labels'] = 0
+
     def save(self):
-        pkl.dump((self.dataset.train_gt, self.classes, self.added, self.history, self.timestamp),\
+        self.n_added += 1
+        pkl.dump((self.dataset.train_gt, self.classes, self.history, self.config),\
           open(os.path.join(self.res_dir, 'oracle_{}_step_{}.pkl'.format(self.timestamp, self.step_)), 'wb'))
 
 

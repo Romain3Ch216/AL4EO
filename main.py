@@ -34,6 +34,7 @@ parser.add_argument('--restore', type=str, help='Path of history archive to rest
 parser.add_argument('--n_segments', type=int, default=5000, help='Number of superpixels for SLIC if superpixels is True')
 parser.add_argument('--compactness', type=int, default=10, help='Compactness param for SLIC if superpixels is True')
 parser.add_argument('--n_random', type=int, default=11, help='Number of pixels to draw within a superpixel')
+parser.add_argument('--op', action='store_true', help='Only perform one step without the automatic oracle if True')
 
 
 # Query options
@@ -65,7 +66,7 @@ if config['tau']:
 if config['subsample'] == 1:
     config['subsample'] = False
 
-assert config['subsample'] and (config['query'] in ['coreset', 'hierarchical']), "Subsampling is only available for Hierarchical and Coreset."
+assert (not config['subsample']) or (config['subsample'] and (config['query'] in ['coreset', 'hierarchical'])), "Subsampling is only available for Hierarchical and Coreset."
 
 config['remove'] = ast.literal_eval(config['remove'])
 
@@ -94,10 +95,18 @@ except OSError as exc:
 model, query, config = load_query(config, dataset)
 AL = ActiveLearningFramework(dataset, model, query, config)
 
-for step in range(args.steps):
-    print(f'==== STEP {step} ====')
+if args.op:
     AL.step()
-    AL.oracle()
+    if 'restore' not in config:
+        AL.config['step'] = 1
+    else:
+        AL.config['step'] += 1
+
+else:
+    for step in range(args.steps):
+        print(f'==== STEP {step} ====')
+        AL.step()
+        AL.oracle()
 
 if not args.dev:
     AL.save()
