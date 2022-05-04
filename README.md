@@ -1,6 +1,6 @@
 # AL4EO
 
-AL4EO is an Active Learning Toolbox for Earth Observation. 
+AL4EO is an Active Learning Toolbox for Earth Observation. QGIS plug-in to come soon!
 
 ## Reference 
 

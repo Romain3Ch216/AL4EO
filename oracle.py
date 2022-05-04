@@ -38,8 +38,6 @@ with open(query_file, 'rb') as f:
 
 dataset = get_dataset(config)
 
-# pdb.set_trace()
-
 query = QueryOutput(dataset, history, classes, config)
 query.patches_()
 

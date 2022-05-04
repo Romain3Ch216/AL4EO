@@ -135,7 +135,7 @@ def map_on_tensor(fn, val):
         return {k: fn(v) for k, v in val.items()}
     return fn(val)
 
-# From DeepHyperX
+# From https://github.com/nshaud/DeepHyperX
 
 def hyper2rgb(img, bands):
     """Convert hyperspectral cube to a rgb image.
