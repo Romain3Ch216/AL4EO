@@ -1568,8 +1568,9 @@ class QueryOutput:
         self.config = config
 
         coordinates = np.array(history['coordinates'][:(config['step']-1)*config['n_px']])
-        coordinates = tuple((coordinates[:,0], coordinates[:,1]))
-        self.dataset.train_gt.gt[coordinates] = np.array(history['labels'][:(config['step']-1)*config['n_px']])
+        if len(coordinates) > 0:
+            coordinates = tuple((coordinates[:,0], coordinates[:,1]))
+            self.dataset.train_gt.gt[coordinates] = np.array(history['labels'][:(config['step']-1)*config['n_px']])
         self.dataset.label_values = [item['label'] for item in self.classes.values()]
         self.dataset.n_classes = len(self.dataset.label_values)
         self.coordinates = np.array(history['coordinates'][-config['n_px']:])
