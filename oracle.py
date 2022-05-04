@@ -127,6 +127,8 @@ def update_rgb(n):
 
     sp = go.Figure(data=go.Scatter(y=spectrum))
     wavelengths = query.dataset.sensor.wavelengths
+    if wavelengths is None:
+        wavelengths = np.arange(1, dataset.n_bands+1) 
     ticks = np.linspace(0,len(wavelengths)-1,20)
 
     sp.update_xaxes(tickangle=45,

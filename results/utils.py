@@ -35,8 +35,11 @@ def spectra_bbm(spectra, mask_bands):
     Output:
         HS cube with NaN at masked band locations
     """
-    mask_bands = np.array(mask_bands).astype(bool)
-    res = np.zeros((spectra.shape[0],len(mask_bands)))
-    res[:, mask_bands] = spectra
-    res[:, mask_bands==False] = np.nan
-    return res
+    if mask_bands is not None:
+        mask_bands = np.array(mask_bands).astype(bool)
+        res = np.zeros((spectra.shape[0],len(mask_bands)))
+        res[:, mask_bands] = spectra
+        res[:, mask_bands==False] = np.nan
+        return res
+    else:
+        return spectra
