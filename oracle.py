@@ -4,11 +4,10 @@ Script that allows an oracle to provide labels for queried pixels
 
 # Dash interface
 import dash
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc, html
+from dash import dash_table
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
-import dash_table
 import dash_daq as daq
 import plotly.graph_objs as go
 import plotly.express as px

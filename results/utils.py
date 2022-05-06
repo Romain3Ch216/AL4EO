@@ -1,6 +1,6 @@
 import numpy as np
-import pandas as pd 
-import dash_table
+import pandas as pd
+from dash import dash_table
 
 
 def make_gt(dataset, history, config, step):
