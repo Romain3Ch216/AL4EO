@@ -61,7 +61,7 @@ To run benchmark experiments on already labeled datasets, run the script `main.p
 
 Pixels queried by the AL algorithm will be stored in a `history_YY_MM_DD_HH_mm.pkl` file.
 To compute the metrics (as we did in our review paper), run `python results.py history_YY_MM_DD_HH_mm.pkl`.
-Results will be saved in a `results_YY_MM_DD_HH_mm.pkl`. Finally, to plot figures, run `python plot.py results_YY_MM_DD_HH_mm.pkl`.
+Results will be saved in a `results_YY_MM_DD_HH_mm.pkl` file. Finally, to plot figures, run `python plot.py results_YY_MM_DD_HH_mm.pkl`.
 
 In an operational context, to run an active learning step before labeling the pixels yourself, you should add the `--op` argument.
 It will save the results of the query in a `history_YY_MM_DD_HH_mm_step_x.pkl` file.
