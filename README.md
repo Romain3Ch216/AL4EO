@@ -48,20 +48,24 @@ Several public hyperspectral datasets are available on the [UPV/EHU](http://www.
 
 ### Adding a new dataset
 
-Adding a custom dataset can be done by modifying the `data/datasets.py` file and the `data/sensors.py` file. 
+Adding a custom dataset can be done by modifying the `data/datasets.py` file and the `data/sensors.py` file.
 
 ## Usage
 
-To run benchmark experiments on already labeled datasets, run the script 'main.py'. The mandatory arguments are:
- * '--dataset' to specify which dataset to use (e.g. Houston, Indian Pines, PaviaU, Mauzac...)
- * '--query' to specify which active learning query system to use (e.g. breaking_tie, coreset, bald...)
- * '--steps' to specify the number of steps
- * '--n_px' to specify the number of pixels to select at each step
- * '--run' to specify which dataset split to use (it should be in the following format: 'myrun-1')
+To run benchmark experiments on already labeled datasets, run the script `main.py`. The mandatory arguments are:
+ * `--dataset` to specify which dataset to use (e.g. Houston, Indian Pines, PaviaU, Mauzac...)
+ * `--query` to specify which active learning query system to use (e.g. breaking_tie, coreset, bald...)
+ * `--steps` to specify the number of steps
+ * `--n_px` to specify the number of pixels to select at each step
+ * `--run` to specify which dataset split to use (it should be in the following format: 'myrun-1')
 
-In an operational context, to run an active learning step before labeling the pixels yourself, you should add the '--op' argument.
-It will save the results of the query in a 'history_YY_MM_DD_HH_mm_step_x.pkl' file.
+Pixels queried by the AL algorithm will be stored in a `history_YY_MM_DD_HH_mm.pkl` file.
+To compute the metrics (as we did in our review paper), run `python results.py history_YY_MM_DD_HH_mm.pkl`.
+Results will be saved in a `results_YY_MM_DD_HH_mm.pkl`. Finally, to plot figures, run `python plot.py results_YY_MM_DD_HH_mm.pkl`.
+
+In an operational context, to run an active learning step before labeling the pixels yourself, you should add the `--op` argument.
+It will save the results of the query in a `history_YY_MM_DD_HH_mm_step_x.pkl` file.
 To label the queried pixels, run the following:
 `python oracle.py history_YY_MM_DD_HH_mm_step_x.pkl`
-It will save the results in a 'oracle_YY_MM_DD_HH_mm_step_x.pkl' file.
-To run the second step, run the script 'main.py' with the extra argument '--restore oracle_YY_MM_DD_HH_mm_step_x.pkl'
+It will save the results in a `oracle_YY_MM_DD_HH_mm_step_x.pkl` file.
+To run the second step, run the script `main.py` with the extra argument `--restore oracle_YY_MM_DD_HH_mm_step_x.pkl`
