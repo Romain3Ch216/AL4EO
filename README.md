@@ -65,7 +65,9 @@ Results will be saved in a `results_YY_MM_DD_HH_mm.pkl` file. Finally, to plot f
 
 In an operational context, to run an active learning step before labeling the pixels yourself, you should add the `--op` argument.
 It will save the results of the query in a `history_YY_MM_DD_HH_mm_step_x.pkl` file.
-To label the queried pixels, run the following:
-`python oracle.py history_YY_MM_DD_HH_mm_step_x.pkl`
+To label the queried pixels (visualize and annotate on a local webpage), run the following:
+`python oracle.py history_YY_MM_DD_HH_mm_step_x.pkl`. 
 It will save the results in a `oracle_YY_MM_DD_HH_mm_step_x.pkl` file.
 To run the second step, run the script `main.py` with the extra argument `--restore oracle_YY_MM_DD_HH_mm_step_x.pkl`
+
+A QGIS plug-in is to come soon to improve user experience.
