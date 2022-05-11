@@ -15,6 +15,8 @@ import torch
 import numpy as np
 import ast
 
+print('test')
+
 # Argument parser for CLI interaction
 parser = argparse.ArgumentParser(description="Run deep learning experiments on"
                                              " various hyperspectral datasets")
@@ -84,7 +86,7 @@ config['res_dir'] = '{}/Results/ActiveLearning/'.format(get_path()) + config['da
 if config['superpixels']:
     print("Segment image in superpixels...")
     dataset.segmentation_(args.n_segments, args.compactness)
-    
+
 try:
     os.makedirs(config['res_dir'], exist_ok=True)
 except OSError as exc:
