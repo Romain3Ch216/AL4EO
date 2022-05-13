@@ -1,4 +1,3 @@
-from sympy import Gt
 import torch
 import torch.utils.data as data
 from torchgeo.datasets import RasterDataset, stack_samples #clément
