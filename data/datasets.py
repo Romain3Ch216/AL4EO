@@ -2,7 +2,24 @@ from data.data import Dataset
 from path import get_path
 
 DATASETS_CONFIG = {
-
+    
+    'HoustonHdr': { #clément
+        'label_values': ['unclassified', 'healthy_grass', 'stressed_grassed',
+                         'artificial_turf', 'evergreen_trees', 'deciduous_trees',
+                         'bare_earth', 'water', 'residential_buildings',
+                         'non_residential_buildings', 'roads', 'sidewalks',
+                         'crosswalks', 'major_thoroughfares', 'highways',
+                         'railways', 'paved_parking_lots', 'unpaved_parking_lots',
+                         'cars', 'trains', 'stadium_seats'],
+        'sensor': 'ITRES',
+        'ignored_labels': [0],
+        'palette': None,
+        'img_pth': '{}/Datasets/houston/img'.format(get_path()),
+        'gt_pth': {'train': dict((i, '{}/Datasets/houston/gt{}'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35]),
+                   'test': dict((i, '{}/Datasets/houston/gt{}'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35]),
+                   'labeled_pool': dict((i, '{}/Datasets/houston/gt{}'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35])
+        }
+    },
     'Houston': {
         'label_values': ['unclassified', 'healthy_grass', 'stressed_grassed',
                          'artificial_turf', 'evergreen_trees', 'deciduous_trees',

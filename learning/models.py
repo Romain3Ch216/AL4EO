@@ -75,7 +75,9 @@ class NeuralNetwork(Classifier):
         self.net.apply(self.net.weight_init)
 
     def train(self, dataset, hyperparams):
-        train_data_loader, val_data_loader = dataset.load_data(dataset.img, dataset.train_gt())
+        #train_data_loader, val_data_loader = dataset.load_data(dataset.img, dataset.train_gt()) #--clément
+        patch_size = 5
+        train_data_loader, val_data_loader = dataset.load_geodata(patch_size=patch_size) #--clément
 
         for epoch in range(1, hyperparams['epochs']+1):
             print('EPOCH {}/{}'.format(epoch, hyperparams['epochs']))
@@ -88,9 +90,15 @@ class NeuralNetwork(Classifier):
             grad_meter     = dict((depth, tnt.meter.AverageValueMeter()) for depth, _ in enumerate(self.net.parameters()))
             y_true, y_pred = [], []
 
-            for batch_id, (spectra, y) in tqdm(enumerate(train_data_loader), total=len(train_data_loader)):
+            #for batch_id, (spectra, y) in tqdm(enumerate(train_data_loader), total=len(train_data_loader)): #--clément
+            for batch_id, sample in tqdm(enumerate(train_data_loader), total=len(train_data_loader)):
+                
+                spectra = sample['image'].view(-1, hyperparams['n_bands']).int() #.squeeze().permute(0, 2, 3, 1).int()
+                print(spectra.shape, spectra.type())
+                y = sample['mask'][:, :, patch_size//2, patch_size//2].int()
+                print(y.shape, y.type())
 
-                y_true.extend(list(map(int, y)))
+                y_true.extend(list(y))  #--clément
                 spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
 
                 self.optimizer.zero_grad()

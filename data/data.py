@@ -1,5 +1,8 @@
+from sympy import Gt
 import torch
 import torch.utils.data as data
+from torchgeo.datasets import RasterDataset, stack_samples #clément
+from torchgeo.samplers import RandomGeoSampler #clément
 import numpy as np
 import spectral
 import spectral.io.envi as envi
@@ -11,6 +14,9 @@ from sklearn.decomposition import PCA
 from skimage.segmentation import slic
 
 import seaborn as sns
+
+import os #clément
+import re #clément
 
 from data.sensors import get_sensor, Sensor
 
@@ -91,9 +97,12 @@ class Dataset:
         if type == 'npy':
             self.load_numpy(img_pth, gt_pth)
 
-        self.n_bands = self.img.shape[-1]
+        #self.n_bands = self.img.shape[-1] #clément
+        self.n_bands, self.img_shape = self.getn_bands_shape(img_pth)
         self.create_palette(palette)
-        self.rgb = self.hyper2rgb(self.IMG, self.rgb_bands)
+        #self.rgb = self.hyper2rgb(self.IMG, self.rgb_bands)
+
+        self.loadGT(gt_pth) #clément
 
         for set_ in self.GT:
             self.GT[set_] = self.GT[set_].astype(int)
@@ -109,8 +118,32 @@ class Dataset:
 
         self.n_px_per_class = self.n_px_per_class()
 
+        #load dataset
+        self.train_ds = geoTrainX(img_pth) & geoLabelX(gt_pth['train'][self.run])
+
         if len(hyperparams['remove']) > 0:
             self.remove()
+
+    def getn_bands_shape(self, img_pth): #clément
+        for f in os.listdir(img_pth):
+            pth = os.path.join(img_pth, f)
+            if os.path.isfile(pth) and re.match(r'.*\.hdr', f):
+                h = envi.read_envi_header(pth)
+                return int(h['bands']), (int(h['lines']), int(h['samples']))
+
+    def loadGT(self, gt_pth): #clément
+        pth_train = gt_pth['train'][self.run]
+        for f in os.listdir(pth_train):
+            pth = os.path.join(pth_train, f)
+            if os.path.isfile(pth):
+                if re.match(r'.*\.hdr', f):
+                    h_pth = pth
+                if re.match(r'.*\.tiff?|.*\.pix', f):
+                    im_pth = pth
+        img = envi.open(h_pth, im_pth).load().squeeze().astype(int)
+        self.GT = {}
+        for base in gt_pth.keys():
+            self.GT[base] = img
 
     def load_numpy(self, img_pth, gt_pth, normalization=True, copy=True):
         self.img = np.load(img_pth)
@@ -165,6 +198,23 @@ class Dataset:
         self.pool.gt = np.random.randint(0, self.n_classes, size=(20,20))
         mask = self.pool.gt != 0
         self.train_gt.gt[mask] = 0
+
+    def load_geodata(self, patch_size=5, split=True):
+        length = self.img_shape[0] * self.img_shape[1]
+        sampler = RandomGeoSampler(self.train_ds, size=patch_size, length=length)
+        use_cuda = self.hyperparams['device'] == 'cuda'
+        N = len(self.train_ds)
+        if split:
+            #train_dataset, val_dataset = data.random_split(self.train_ds, [int(0.95*N), N - int(0.95*N)])
+            train_loader  = data.DataLoader(self.train_ds, sampler=sampler, collate_fn=stack_samples,
+                                            batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
+            val_loader  = data.DataLoader(self.train_ds, sampler=sampler, collate_fn=stack_samples,
+                                            batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
+            return train_loader, val_loader
+        else:
+            loader  = data.DataLoader(self.train_ds, sampler=sampler, collate_fn=stack_samples,
+                                        batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
+            return loader
 
     def load_data(self, data_, gt, split=True):
         data_ = HyperX(data_, gt, **self.hyperparams)
@@ -257,9 +307,9 @@ class Dataset:
             gt += self.GT[set_]
         prop = np.zeros(self.n_classes-1)
         n = np.sum(gt != 0)
-        for class_id in np.unique(gt):
-            if class_id != 0:
-                prop[class_id-1] = round(np.sum(gt == class_id) / n *100, 1)
+        for i, class_id in enumerate(np.unique(gt)): #clément
+            if i != 0:
+                prop[i-1] = round(np.sum(gt == class_id) / n *100, 1)
         return prop
 
 
@@ -271,9 +321,9 @@ class Dataset:
         gt = gt.astype(int)
         n_px = np.zeros(self.n_classes-1)
         n = np.sum(gt != 0)
-        for class_id in np.unique(gt):
-            if class_id != 0:
-                n_px[class_id-1] = np.sum(gt == class_id)
+        for i, class_id in enumerate(np.unique(gt)): #clément
+            if i != 0:
+                n_px[i-1] = np.sum(gt == class_id)
         return n_px
 
     def create_palette(self, palette):
@@ -355,6 +405,12 @@ class Dataset:
             res[:,:,k:b+k] = spectrums.reshape(m,n,b)
             k = b+k
         self.img = np.asarray(res, dtype='float32')
+
+class geoTrainX(RasterDataset): #clément
+    is_image = True
+
+class geoLabelX(RasterDataset): #clément
+    is_image = False
 
 class HyperX(torch.utils.data.Dataset):
     """ Generic class for a hyperspectral dataset

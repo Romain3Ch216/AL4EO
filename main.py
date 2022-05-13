@@ -80,7 +80,7 @@ config['proportions'] = dataset.proportions
 config['classes'] = np.unique(dataset.train_gt())[1:]
 config['n_bands']   = dataset.n_bands
 config['ignored_labels'] = dataset.ignored_labels
-config['img_shape'] = dataset.img.shape[:-1]
+config['img_shape'] = dataset.img_shape
 config['res_dir'] = '{}/Results/ActiveLearning/'.format(get_path()) + config['dataset'] + '/' + args.run + '/' + config['query']
 
 if config['superpixels']:
