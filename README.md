@@ -6,7 +6,7 @@ AL4EO is an Active Learning Toolbox for Earth Observation. QGIS plug-in to come 
 
 This toolbox was used for our review paper in IEEE Geoscience and Remote Sensing Magazine:
 
-> R. Thoreau, V. Achard, L. Risser, B. Berthelot and X. Briottet, "*Active Learning for Hyperspectral Image Classification: a Comparative Review*", in IEEE Geoscience and Remote Sensing Magazine, to be published soon.
+> R. Thoreau, V. ACHARD, L. Risser, B. Berthelot and X. BRIOTTET, "*Active Learning for Hyperspectral Image Classification: A Comparative Review*," in IEEE Geoscience and Remote Sensing Magazine, doi: 10.1109/MGRS.2022.3169947.
 
 ## Requirements
 
