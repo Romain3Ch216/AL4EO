@@ -1,10 +1,11 @@
 import torch
 import torch.utils.data as data
-from torchgeo.datasets import RasterDataset, stack_samples #clément
-from torchgeo.samplers import RandomGeoSampler #clément
 import numpy as np
 import spectral
 import spectral.io.envi as envi
+import rasterio as rio
+import rasterio.warp
+from rasterio.windows import Window
 
 from skimage.morphology import closing, disk
 from skimage.filters import sobel
@@ -13,9 +14,6 @@ from sklearn.decomposition import PCA
 from skimage.segmentation import slic
 
 import seaborn as sns
-
-import os #clément
-import re #clément
 
 from data.sensors import get_sensor, Sensor
 
@@ -95,13 +93,15 @@ class Dataset:
 
         if type == 'npy':
             self.load_numpy(img_pth, gt_pth)
+            self.n_bands = self.img.shape[-1]
+            self.img_shape = self.img.shape[0], self.img.shape[1]
+            self.rgb = self.hyper2rgb(self.IMG, self.rgb_bands)
+        if type == 'hdr':
+            self.load_GThdr(gt_pth)
+            self.n_bands, self.img_shape = self.getn_bands_shape(img_pth)
+            self.img_pth = img_pth
 
-        #self.n_bands = self.img.shape[-1] #clément
-        self.n_bands, self.img_shape = self.getn_bands_shape(img_pth)
         self.create_palette(palette)
-        #self.rgb = self.hyper2rgb(self.IMG, self.rgb_bands)
-
-        self.loadGT(gt_pth) #clément
 
         for set_ in self.GT:
             self.GT[set_] = self.GT[set_].astype(int)
@@ -117,32 +117,23 @@ class Dataset:
 
         self.n_px_per_class = self.n_px_per_class()
 
-        #load dataset
-        self.train_ds = geoTrainX(img_pth) & geoLabelX(gt_pth['train'][self.run])
-
         if len(hyperparams['remove']) > 0:
             self.remove()
 
     def getn_bands_shape(self, img_pth): #clément
-        for f in os.listdir(img_pth):
-            pth = os.path.join(img_pth, f)
-            if os.path.isfile(pth) and re.match(r'.*\.hdr', f):
-                h = envi.read_envi_header(pth)
-                return int(h['bands']), (int(h['lines']), int(h['samples']))
+        with rio.open(img_pth[:-4] + ('.img')) as src:
+            return src.count, (src.width, src.height)
 
-    def loadGT(self, gt_pth): #clément
-        pth_train = gt_pth['train'][self.run]
-        for f in os.listdir(pth_train):
-            pth = os.path.join(pth_train, f)
-            if os.path.isfile(pth):
-                if re.match(r'.*\.hdr', f):
-                    h_pth = pth
-                if re.match(r'.*\.tiff?|.*\.pix', f):
-                    im_pth = pth
-        img = envi.open(h_pth, im_pth).load().squeeze().astype(int)
+    def load_GThdr(self, gt_pth): #clément
         self.GT = {}
-        for base in gt_pth.keys():
-            self.GT[base] = img
+        self.gt_crs = None
+        self.gt_transform = None
+        for base, gt in gt_pth.items():
+            with rio.open(gt[self.run][:-4] + ('.img')) as src:
+                if(self.gt_crs == None and self.gt_transform == None):
+                    self.gt_crs = src.crs
+                    self.gt_transform = src.transform
+                self.GT[base] = src.read(1, window=Window(600,500,100,100))
 
     def load_numpy(self, img_pth, gt_pth, normalization=True, copy=True):
         self.img = np.load(img_pth)
@@ -198,25 +189,24 @@ class Dataset:
         mask = self.pool.gt != 0
         self.train_gt.gt[mask] = 0
 
-    def load_geodata(self, patch_size=5, split=True):
-        length = self.img_shape[0] * self.img_shape[1]
-        sampler = RandomGeoSampler(self.train_ds, size=patch_size, length=length)
-        use_cuda = self.hyperparams['device'] == 'cuda'
-        N = len(self.train_ds)
-        if split:
-            #train_dataset, val_dataset = data.random_split(self.train_ds, [int(0.95*N), N - int(0.95*N)])
-            train_loader  = data.DataLoader(self.train_ds, sampler=sampler, collate_fn=stack_samples,
-                                            batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
-            val_loader  = data.DataLoader(self.train_ds, sampler=sampler, collate_fn=stack_samples,
-                                            batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
-            return train_loader, val_loader
-        else:
-            loader  = data.DataLoader(self.train_ds, sampler=sampler, collate_fn=stack_samples,
-                                        batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
-            return loader
-
     def load_data(self, data_, gt, split=True):
         data_ = HyperX(data_, gt, **self.hyperparams)
+        use_cuda = self.hyperparams['device'] == 'cuda'
+        N = len(data_)
+        if split:
+            train_dataset, val_dataset = data.random_split(data_, [int(0.95*N), N - int(0.95*N)])
+            train_loader  = data.DataLoader(train_dataset, shuffle=True,
+                                      batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
+            val_loader  = data.DataLoader(val_dataset, shuffle=True,
+                                      batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
+            return train_loader, val_loader
+        else:
+            loader  = data.DataLoader(data_, shuffle=False,
+                                      batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
+            return loader
+
+    def load_Hdrdata(self, gt, split=True):
+        data_ = HyperHdrX(self.img_pth, gt, self.gt_crs, self.gt_transform, **self.hyperparams)
         use_cuda = self.hyperparams['device'] == 'cuda'
         N = len(data_)
         if split:
@@ -271,6 +261,17 @@ class Dataset:
         self.mask = self.mask[self.mask]
         self.clusters = clusters
 
+    def pool_dataHdr(self):
+        x_pos, y_pos = np.nonzero(self.pool())
+        x_pos, y_pos = rio.transform.xy(self.gt_transform, x_pos, y_pos)
+        with rio.open(self.img_pth[:-4] + ('.img')) as src:
+            x_pos, y_pos = rio.warp.transform(self.gt_crs, src.crs, x_pos, y_pos)
+            data = np.zeros((len(x_pos), src.count), dtype='float32')
+            for i, val in enumerate(src.sample(zip(x_pos, y_pos))):
+                data[i,:] = val
+        data = (data - np.min(data)) / (np.max(data) - np.min(data))
+        labels = self.pool.labels
+        return data, labels
 
     @property
     def train_data(self):
@@ -306,9 +307,9 @@ class Dataset:
             gt += self.GT[set_]
         prop = np.zeros(self.n_classes-1)
         n = np.sum(gt != 0)
-        for i, class_id in enumerate(np.unique(gt)): #clément
-            if i != 0:
-                prop[i-1] = round(np.sum(gt == class_id) / n *100, 1)
+        for class_id in np.unique(gt):
+            if class_id != 0:
+                prop[class_id-1] = round(np.sum(gt == class_id) / n *100, 1)
         return prop
 
 
@@ -320,9 +321,9 @@ class Dataset:
         gt = gt.astype(int)
         n_px = np.zeros(self.n_classes-1)
         n = np.sum(gt != 0)
-        for i, class_id in enumerate(np.unique(gt)): #clément
-            if i != 0:
-                n_px[i-1] = np.sum(gt == class_id)
+        for class_id in np.unique(gt):
+            if class_id != 0:
+                n_px[class_id-1] = np.sum(gt == class_id)
         return n_px
 
     def create_palette(self, palette):
@@ -405,11 +406,92 @@ class Dataset:
             k = b+k
         self.img = np.asarray(res, dtype='float32')
 
-class geoTrainX(RasterDataset): #clément
-    is_image = True
+class HyperHdrX(torch.utils.data.Dataset):
+    """ Generic class for a hyperspectral dataset
+        Credits to https://github.com/nshaud/DeepHyperX"""
 
-class geoLabelX(RasterDataset): #clément
-    is_image = False
+    def __init__(self, data_pth, gt, gt_crs, gt_transform, **hyperparams):
+        """
+        Args:
+            data: 3D hyperspectral image
+            gt: 2D array of labels
+            hyperparams : dict that includes:
+                dataset: str, name of the dataset
+                patch_size: int, size of the spatial neighbourhood
+                ignored_labels: list, class ids to ignore
+        """
+        super(HyperHdrX, self).__init__()
+        self.data_pth = data_pth
+        self.label = gt
+        self.gt_crs = gt_crs
+        self.gt_transform = gt_transform
+        self.patch_size = hyperparams["patch_size"]
+        self.ignored_labels = set(hyperparams["ignored_labels"])
+
+        mask = np.ones_like(gt)
+        for l in self.ignored_labels:
+              mask[gt == l] = 0
+
+        x_pos, y_pos = np.nonzero(mask)
+        p = self.patch_size // 2
+        if p > 0:
+            self.indices = np.array(
+                [
+                    (x, y)
+                    for x, y in zip(x_pos, y_pos)
+                    if x > p and x < gt.shape[0] - p and y > p and y < gt.shape[0] - p and self.label[x, y] != 0
+                ]
+            )
+        else:
+            self.indices = np.array(
+                [
+                    (x, y)
+                    for x, y in zip(x_pos, y_pos)
+                ]
+            )
+
+        self.labels = [self.label[x, y] for x, y in self.indices]
+        np.random.shuffle(self.indices)
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, i):
+        x, y = self.indices[i]
+        x1, y1 = x - self.patch_size // 2, y - self.patch_size // 2
+        x2, y2 = x1 + self.patch_size, y1 + self.patch_size
+
+        label = self.label[x1:x2, y1:y2]
+
+        x, y = rio.transform.xy(self.gt_transform, (x1, x2), (y1, y2))
+        with rio.open(self.data_pth[:-4] + ('.img')) as src:
+            x, y = rio.warp.transform(self.gt_crs, src.crs, x, y)
+            x, y = rio.transform.rowcol(src.transform, x, y)
+            data = src.read(window=Window.from_slices(x, y), out_shape=(self.patch_size, self.patch_size))
+
+        # Copy the data into numpy arrays (PyTorch doesn't like numpy views)
+        data = np.asarray(np.copy(data), dtype="float32")
+        #normalize data
+        data = (data - np.min(data)) / (np.max(data) - np.min(data))
+        label = np.asarray(np.copy(label), dtype="int64")
+
+        # Load the data into PyTorch tensors
+        data = torch.from_numpy(data)
+        label = torch.from_numpy(label)
+        # Extract the center label if needed
+        if self.patch_size > 1:
+            label = label[self.patch_size // 2, self.patch_size // 2]
+        # Remove unused dimensions when we work with invidual spectrums
+        elif self.patch_size == 1:
+            data = data[:, 0, 0]
+            label = label[0, 0]
+
+        # Add a fourth dimension for 3D CNN
+        if self.patch_size > 1:
+            # Make 4D data ((Batch x) Planes x Channels x Width x Height)
+            data = data.unsqueeze(0)
+
+        return data, label
 
 class HyperX(torch.utils.data.Dataset):
     """ Generic class for a hyperspectral dataset

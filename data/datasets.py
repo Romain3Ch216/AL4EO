@@ -14,10 +14,10 @@ DATASETS_CONFIG = {
         'sensor': 'ITRES',
         'ignored_labels': [0],
         'palette': None,
-        'img_pth': '{}/Datasets/houston/img'.format(get_path()),
-        'gt_pth': {'train': dict((i, '{}/Datasets/houston/gt{}'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35]),
-                   'test': dict((i, '{}/Datasets/houston/gt{}'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35]),
-                   'labeled_pool': dict((i, '{}/Datasets/houston/gt{}'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35])
+        'img_pth': '{}/Datasets/houston/img/houston.hdr'.format(get_path()),
+        'gt_pth': {'train': dict((i, '{}/Datasets/houston/gt{}/train/initial_gt.hdr'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35]),
+                   'test': dict((i, '{}/Datasets/houston/gt{}/test/test_gt.hdr'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35]),
+                   'labeled_pool': dict((i, '{}/Datasets/houston/gt{}/labeled_pool/labeled_pool.hdr'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35])
         }
     },
     'Houston': {
