@@ -65,7 +65,7 @@ class TrainGt(Subset):
 class Dataset:
     """ Class for an hyperspectral / multispectral dataset """
 
-    def __init__(self, hyperparams, img_pth, gt_pth, palette, label_values, ignored_labels, sensor):
+    def __init__(self, hyperparams, img_pth, gt_pth, palette, label_values, ignored_labels, sensor=None, n_bands=None, img_shape=None, rgb_bands=None):
         """
         Args:
             hyperparams: dict, hyperparameters
@@ -81,9 +81,12 @@ class Dataset:
         self.ignored_labels = ignored_labels
         self.label_values   = label_values
         self.n_classes      = len(label_values)
-        self.sensor_name    = sensor
-        self.sensor         = get_sensor(sensor)
-        self.rgb_bands      = self.sensor.rgb_bands
+        if sensor:
+            self.sensor_name    = sensor
+            self.sensor         = get_sensor(sensor)
+            self.rgb_bands      = self.sensor.rgb_bands
+        else:
+            self.rgb_bands      = rgb_bands
         self.hyperparams = hyperparams
         self.run = int(hyperparams['run'][-1])
         self.segmentation = None
@@ -93,10 +96,11 @@ class Dataset:
 
         if type == 'npy':
             self.load_numpy(img_pth, gt_pth)
-            self.n_bands = self.img.shape[-1]
-            self.img_shape = self.img.shape[0], self.img.shape[1]
+            self.n_bands = n_bands if n_bands else self.img.shape[-1] 
+            self.img_shape = img_shape if img_shape else (self.img.shape[0], self.img.shape[1])
             self.rgb = self.hyper2rgb(self.IMG, self.rgb_bands)
-        if type == 'hdr':
+        if img_pth[-4:] == 'tiff':
+            type = 'tiff'
             self.load_GThdr(gt_pth)
             self.n_bands, self.img_shape = self.getn_bands_shape(img_pth)
             self.img_pth = img_pth
@@ -111,8 +115,8 @@ class Dataset:
         if 'labeled_pool' in self.GT:
             self.pool = Pool(self.GT['labeled_pool'])
         else:
-            mask = (self.GT['train'] + self.GT['val'] + self.GT['test']) == 0
-            mask[self.nan_mask] = False
+            mask = (self.GT['train']) #+ self.GT['val'] + self.GT['test']) == 0
+            #mask[self.nan_mask] = False
             self.pool = Pool(mask)
 
         self.n_px_per_class = self.n_px_per_class()
@@ -121,7 +125,7 @@ class Dataset:
             self.remove()
 
     def getn_bands_shape(self, img_pth): #clément
-        with rio.open(img_pth[:-4] + ('.img')) as src:
+        with rio.open(img_pth) as src:
             return src.count, (src.width, src.height)
 
     def load_GThdr(self, gt_pth): #clément
@@ -129,7 +133,7 @@ class Dataset:
         self.gt_crs = None
         self.gt_transform = None
         for base, gt in gt_pth.items():
-            with rio.open(gt[self.run][:-4] + ('.img')) as src:
+            with rio.open(gt[self.run]) as src:
                 if(self.gt_crs == None and self.gt_transform == None):
                     self.gt_crs = src.crs
                     self.gt_transform = src.transform
@@ -264,7 +268,7 @@ class Dataset:
     def pool_dataHdr(self):
         x_pos, y_pos = np.nonzero(self.pool())
         x_pos, y_pos = rio.transform.xy(self.gt_transform, x_pos, y_pos)
-        with rio.open(self.img_pth[:-4] + ('.img')) as src:
+        with rio.open(self.img_pth) as src:
             x_pos, y_pos = rio.warp.transform(self.gt_crs, src.crs, x_pos, y_pos)
             data = np.zeros((len(x_pos), src.count), dtype='float32')
             for i, val in enumerate(src.sample(zip(x_pos, y_pos))):
@@ -464,7 +468,7 @@ class HyperHdrX(torch.utils.data.Dataset):
         label = self.label[x1:x2, y1:y2]
 
         x, y = rio.transform.xy(self.gt_transform, (x1, x2), (y1, y2))
-        with rio.open(self.data_pth[:-4] + ('.img')) as src:
+        with rio.open(self.data_pth) as src:
             x, y = rio.warp.transform(self.gt_crs, src.crs, x, y)
             x, y = rio.transform.rowcol(src.transform, x, y)
             data = src.read(window=Window.from_slices(x, y), out_shape=(self.patch_size, self.patch_size))
