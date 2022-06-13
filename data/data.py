@@ -4,7 +4,7 @@ import numpy as np
 import spectral
 import spectral.io.envi as envi
 import rasterio as rio
-import rasterio.warp
+from rasterio.warp import reproject, Resampling
 from rasterio.windows import Window
 
 from skimage.morphology import closing, disk
@@ -101,8 +101,7 @@ class Dataset:
             self.rgb = self.hyper2rgb(self.IMG, self.rgb_bands)
         if img_pth[-4:] == 'tiff':
             type = 'tiff'
-            self.load_GThdr(gt_pth)
-            self.n_bands, self.img_shape = self.getn_bands_shape(img_pth)
+            self.load_Hdr(img_pth, gt_pth)
             self.img_pth = img_pth
 
         self.create_palette(palette)
@@ -115,7 +114,7 @@ class Dataset:
         if 'labeled_pool' in self.GT:
             self.pool = Pool(self.GT['labeled_pool'])
         else:
-            mask = (self.GT['train']) #+ self.GT['val'] + self.GT['test']) == 0
+            mask = (self.GT['train'] == 0) #+ self.GT['val'] + self.GT['test']) == 0
             #mask[self.nan_mask] = False
             self.pool = Pool(mask)
 
@@ -124,20 +123,26 @@ class Dataset:
         if len(hyperparams['remove']) > 0:
             self.remove()
 
-    def getn_bands_shape(self, img_pth): #clément
+    def load_Hdr(self, img_pth, gt_pth): #clément
         with rio.open(img_pth) as src:
-            return src.count, (src.width, src.height)
+            self.n_bands = src.count
+            self.img_shape = src.width, src.height
+            img_transform = src.transform
+            img_crs = src.crs
 
-    def load_GThdr(self, gt_pth): #clément
         self.GT = {}
-        self.gt_crs = None
-        self.gt_transform = None
-        for base, gt in gt_pth.items():
-            with rio.open(gt[self.run]) as src:
-                if(self.gt_crs == None and self.gt_transform == None):
-                    self.gt_crs = src.crs
-                    self.gt_transform = src.transform
-                self.GT[base] = src.read(1, window=Window(600,500,100,100))
+        for base, pth in gt_pth.items():
+            with rio.open(pth[self.run]) as src:
+                gt = np.zeros(self.img_shape, dtype=np.uint8)
+                reproject(
+                    source=src.read(1),
+                    destination=gt,
+                    src_transform=src.transform,
+                    src_crs=src.crs,
+                    dst_transform=img_transform,
+                    dst_crs=img_crs,
+                    resampling=Resampling.nearest)
+            self.GT[base] = gt
 
     def load_numpy(self, img_pth, gt_pth, normalization=True, copy=True):
         self.img = np.load(img_pth)
@@ -210,9 +215,10 @@ class Dataset:
             return loader
 
     def load_Hdrdata(self, gt, split=True):
-        data_ = HyperHdrX(self.img_pth, gt, self.gt_crs, self.gt_transform, **self.hyperparams)
+        data_ = HyperHdrX(self.img_pth, gt, **self.hyperparams)
         use_cuda = self.hyperparams['device'] == 'cuda'
         N = len(data_)
+        print(self.hyperparams['batch_size'])
         if split:
             train_dataset, val_dataset = data.random_split(data_, [int(0.95*N), N - int(0.95*N)])
             train_loader  = data.DataLoader(train_dataset, shuffle=True,
@@ -266,12 +272,12 @@ class Dataset:
         self.clusters = clusters
 
     def pool_dataHdr(self):
-        x_pos, y_pos = np.nonzero(self.pool())
-        x_pos, y_pos = rio.transform.xy(self.gt_transform, x_pos, y_pos)
+        mask = self.pool() != 0
+        x, y = np.nonzero(mask)
+        data = np.zeros((len(x), self.n_bands), dtype=np.float32)
         with rio.open(self.img_pth) as src:
-            x_pos, y_pos = rio.warp.transform(self.gt_crs, src.crs, x_pos, y_pos)
-            data = np.zeros((len(x_pos), src.count), dtype='float32')
-            for i, val in enumerate(src.sample(zip(x_pos, y_pos))):
+            x, y = rio.transform.xy(src.transform, x, y)
+            for i, val in enumerate(src.sample(zip(x, y))): 
                 data[i,:] = val
         data = (data - np.min(data)) / (np.max(data) - np.min(data))
         labels = self.pool.labels
@@ -414,7 +420,7 @@ class HyperHdrX(torch.utils.data.Dataset):
     """ Generic class for a hyperspectral dataset
         Credits to https://github.com/nshaud/DeepHyperX"""
 
-    def __init__(self, data_pth, gt, gt_crs, gt_transform, **hyperparams):
+    def __init__(self, data_pth, gt, **hyperparams):
         """
         Args:
             data: 3D hyperspectral image
@@ -427,8 +433,6 @@ class HyperHdrX(torch.utils.data.Dataset):
         super(HyperHdrX, self).__init__()
         self.data_pth = data_pth
         self.label = gt
-        self.gt_crs = gt_crs
-        self.gt_transform = gt_transform
         self.patch_size = hyperparams["patch_size"]
         self.ignored_labels = set(hyperparams["ignored_labels"])
 
@@ -465,13 +469,10 @@ class HyperHdrX(torch.utils.data.Dataset):
         x1, y1 = x - self.patch_size // 2, y - self.patch_size // 2
         x2, y2 = x1 + self.patch_size, y1 + self.patch_size
 
-        label = self.label[x1:x2, y1:y2]
-
-        x, y = rio.transform.xy(self.gt_transform, (x1, x2), (y1, y2))
         with rio.open(self.data_pth) as src:
-            x, y = rio.warp.transform(self.gt_crs, src.crs, x, y)
-            x, y = rio.transform.rowcol(src.transform, x, y)
-            data = src.read(window=Window.from_slices(x, y), out_shape=(self.patch_size, self.patch_size))
+            data = src.read(window=Window.from_slices((x1, x2), (y1, y2)), out_shape=(self.patch_size, self.patch_size))
+
+        label = self.label[x1:x2, y1:y2]
 
         # Copy the data into numpy arrays (PyTorch doesn't like numpy views)
         data = np.asarray(np.copy(data), dtype="float32")
