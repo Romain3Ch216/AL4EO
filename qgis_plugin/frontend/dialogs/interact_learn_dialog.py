@@ -130,7 +130,7 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
         config['batch_size'] = self.spinBox_batch_size.value()
         config['lr'] = self.doubleSpinBox_lr.value()
         config['weight_decay'] = self.doubleSpinBox_weight_decay.value()
-        config['device'] = self.comboBox_device.currentText().lower()
+        config['device'] = 'cpu' if self.comboBox_device.currentText() == 'CPU' else 'cuda'
 
         config['dataset'] = "Houston"
         config['run'] = [1]

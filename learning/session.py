@@ -54,8 +54,10 @@ class ActiveLearningFramework:
         start_query_time = time.time()
         #train_data = self.dataset.train_data
         train_data = None
-        #pool = self.dataset.pool_data
-        pool = self.dataset.pool_dataHdr()
+        if self.dataset.type == 'npy':
+            pool = self.dataset.pool_data
+        else:
+            pool = self.dataset.pool_dataHdr()
 
 
         if self.config['superpixels']:

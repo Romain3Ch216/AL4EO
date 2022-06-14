@@ -99,10 +99,12 @@ class Dataset:
             self.n_bands = n_bands if n_bands else self.img.shape[-1] 
             self.img_shape = img_shape if img_shape else (self.img.shape[0], self.img.shape[1])
             self.rgb = self.hyper2rgb(self.IMG, self.rgb_bands)
+            self.type = 'npy'
         if img_pth[-4:] == 'tiff':
             type = 'tiff'
             self.load_Hdr(img_pth, gt_pth)
             self.img_pth = img_pth
+            self.type = 'hdr'
 
         self.create_palette(palette)
 
@@ -118,7 +120,7 @@ class Dataset:
             #mask[self.nan_mask] = False
             self.pool = Pool(mask)
 
-        self.n_px_per_class = self.n_px_per_class()
+        #self.n_px_per_class = self.n_px_per_class()
 
         if len(hyperparams['remove']) > 0:
             self.remove()
@@ -273,12 +275,19 @@ class Dataset:
 
     def pool_dataHdr(self):
         mask = self.pool() != 0
-        x, y = np.nonzero(mask)
-        data = np.zeros((len(x), self.n_bands), dtype=np.float32)
+        nb_nonzero = np.count_nonzero(mask)
+        data = np.zeros((nb_nonzero, self.n_bands), dtype="float32")
+        k=0
         with rio.open(self.img_pth) as src:
-            x, y = rio.transform.xy(src.transform, x, y)
-            for i, val in enumerate(src.sample(zip(x, y))): 
-                data[i,:] = val
+            assert len(set(src.block_shapes)) == 1
+            for _, window in src.block_windows(1):
+                block = src.read(window=window)
+                for i in range(window.row_off, window.row_off+window.height):
+                    for j in range(window.col_off, window.col_off+window.width):
+                        if mask[j,i]:
+                            data[k,:] = block[:,i-window.row_off,j-window.col_off]
+                            k+=1
+        assert k == nb_nonzero
         data = (data - np.min(data)) / (np.max(data) - np.min(data))
         labels = self.pool.labels
         return data, labels
@@ -322,7 +331,7 @@ class Dataset:
                 prop[class_id-1] = round(np.sum(gt == class_id) / n *100, 1)
         return prop
 
-
+        
     def n_px_per_class(self):
         gt = np.zeros_like(self.train_gt.gt)
         gt_ = np.ones_like(self.train_gt.gt)
@@ -335,7 +344,7 @@ class Dataset:
             if class_id != 0:
                 n_px[class_id-1] = np.sum(gt == class_id)
         return n_px
-
+        
     def create_palette(self, palette):
         # Generate color palette in rgb and hex format
         if palette is None:
@@ -470,7 +479,7 @@ class HyperHdrX(torch.utils.data.Dataset):
         x2, y2 = x1 + self.patch_size, y1 + self.patch_size
 
         with rio.open(self.data_pth) as src:
-            data = src.read(window=Window.from_slices((x1, x2), (y1, y2)), out_shape=(self.patch_size, self.patch_size))
+            data = src.read(window=Window.from_slices((x1, x2), (y1, y2)))
 
         label = self.label[x1:x2, y1:y2]
 
