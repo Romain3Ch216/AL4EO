@@ -2,7 +2,6 @@ from data.data import Dataset
 from path import get_path
 
 DATASETS_CONFIG = {
-    
     'HoustonHdr': { #clément
         'label_values': ['unclassified', 'healthy_grass', 'stressed_grassed',
                          'artificial_turf', 'evergreen_trees', 'deciduous_trees',
@@ -14,10 +13,10 @@ DATASETS_CONFIG = {
         'sensor': 'ITRES',
         'ignored_labels': [0],
         'palette': None,
-        'img_pth': '{}/Datasets/houston/img/houston.tiff'.format(get_path()),
-        'gt_pth': {'train': dict((i, '{}/Datasets/houston/gt{}/train/initial_gt.tiff'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35]),
-                   'test': dict((i, '{}/Datasets/houston/gt{}/test/test_gt.tiff'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35]),
-                   'labeled_pool': dict((i, '{}/Datasets/houston/gt{}/labeled_pool/labeled_pool.tiff'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35])
+        'img_pth': '{}/Datasets/houston/ImageryAndTrainingGT/2018IEEE_Contest/Phase2/FullHSIDataset/20170218_UH_CASI_S4_NAD83.tiff'.format(get_path()),
+        'gt_pth': {'train': dict((i, '{}/Datasets/houston/ImageryAndTrainingGT/2018IEEE_Contest/gt{}/initial_gt.tiff'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35]),
+                   'test': dict((i, '{}/Datasets/houston/ImageryAndTrainingGT/2018IEEE_Contest/gt{}/test_gt.tiff'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35]),
+                   'labeled_pool': dict((i, '{}/Datasets/houston/ImageryAndTrainingGT/2018IEEE_Contest/gt{}/labeled_pool.tiff'.format(get_path(), i)) for i in [1, 2, 3, 11, 21, 22, 31, 32, 33, 50, 34, 35])
         }
     },
     'Houston': {
