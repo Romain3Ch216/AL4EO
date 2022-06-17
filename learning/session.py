@@ -57,7 +57,7 @@ class ActiveLearningFramework:
         if self.dataset.type == 'npy':
             pool = self.dataset.pool_data
         else:
-            pool = self.dataset.pool_dataHdr()
+            pool = self.dataset.load_Hdrdata(self.dataset.train_gt(), split=False)
 
 
         if self.config['superpixels']:
@@ -88,10 +88,10 @@ class ActiveLearningFramework:
             self.coordinates = self.dataset.pool.coordinates.T[ranks]
             score = self.query.score
 
-        
-        
+
+
         query_time = time.time() - start_query_time
-        f.writelines(['{} {} {} {}\n'.format(self.step_, training_time, query_time, pool[0].shape[0])])
+        f.writelines(['{} {} {} {}\n'.format(self.step_, training_time, query_time, self.dataset.pool.size)])
         f.close()
 
         self.history['coordinates'].extend(list(self.coordinates))
@@ -140,11 +140,10 @@ class ActiveLearningFramework:
 
         self.dataset.label_values = [item['label'] for item in self.classes.values()]
         n_classes = len(self.dataset.label_values)
-        self.dataset.n_classes = n_classes 
+        self.dataset.n_classes = n_classes
         self.config['n_classes'] = n_classes
         self.model, self.query, self.config = load_query(self.config, self.dataset)
 
 
     def init_step(self):
         self.config['pool_size'] = self.dataset.pool.size
-

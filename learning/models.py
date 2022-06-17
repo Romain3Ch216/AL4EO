@@ -80,79 +80,82 @@ class NeuralNetwork(Classifier):
         else:
             train_data_loader, val_data_loader = dataset.load_Hdrdata(dataset.train_gt())
 
-        for epoch in range(1, hyperparams['epochs']+1):
-            print('EPOCH {}/{}'.format(epoch, hyperparams['epochs']))
+        try:
+            for epoch in range(1, hyperparams['epochs']+1):
+                print('EPOCH {}/{}'.format(epoch, hyperparams['epochs']))
 
-            self.net.train()
-            self.net.to(hyperparams['device'])
+                self.net.train()
+                self.net.to(hyperparams['device'])
 
-            acc_meter      = tnt.meter.ClassErrorMeter(accuracy=True)
-            loss_meter     = tnt.meter.AverageValueMeter()
-            grad_meter     = dict((depth, tnt.meter.AverageValueMeter()) for depth, _ in enumerate(self.net.parameters()))
-            y_true, y_pred = [], []
+                acc_meter      = tnt.meter.ClassErrorMeter(accuracy=True)
+                loss_meter     = tnt.meter.AverageValueMeter()
+                grad_meter     = dict((depth, tnt.meter.AverageValueMeter()) for depth, _ in enumerate(self.net.parameters()))
+                y_true, y_pred = [], []
 
-            for batch_id, (spectra, y) in tqdm(enumerate(train_data_loader), total=len(train_data_loader)):
+                for batch_id, (spectra, y) in tqdm(enumerate(train_data_loader), total=len(train_data_loader)):
 
-                y_true.extend(list(map(int, y)))
-                spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
+                    y_true.extend(list(map(int, y)))
+                    spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
 
-                self.optimizer.zero_grad()
-                out = self.net(spectra)
-                loss = self.criterion(out, y.long())
+                    self.optimizer.zero_grad()
+                    out = self.net(spectra)
+                    loss = self.criterion(out, y.long())
 
-                loss.backward()
-                self.optimizer.step()
+                    loss.backward()
+                    self.optimizer.step()
 
-                pred = out.detach()
-                y_p = pred.argmax(dim=1).cpu().numpy()
-                y_pred.extend(list(y_p))
-                acc_meter.add(pred, y)
-                loss_meter.add(loss.item())
-                for depth, params in enumerate(self.net.parameters()):
-                    if params.grad is not None:
-                        grad_meter[depth].add(torch.mean(torch.abs(params.grad)).item())
+                    pred = out.detach()
+                    y_p = pred.argmax(dim=1).cpu().numpy()
+                    y_pred.extend(list(y_p))
+                    acc_meter.add(pred, y)
+                    loss_meter.add(loss.item())
+                    for depth, params in enumerate(self.net.parameters()):
+                        if params.grad is not None:
+                            grad_meter[depth].add(torch.mean(torch.abs(params.grad)).item())
 
-            self.history['train_accuracy'].append(acc_meter.value()[0])
-            self.history['train_loss'].append(loss_meter.value()[0])
-            self.history['train_IoU'].append(mIou(y_true, y_pred, hyperparams['n_classes']))
-            self.history['train_kappa'].append(cohen_kappa_score(y_true, y_pred))
+                self.history['train_accuracy'].append(acc_meter.value()[0])
+                self.history['train_loss'].append(loss_meter.value()[0])
+                self.history['train_IoU'].append(mIou(y_true, y_pred, hyperparams['n_classes']))
+                self.history['train_kappa'].append(cohen_kappa_score(y_true, y_pred))
 
-            print('Loss {:.4f},  Acc {:.2f},  IoU {:.4f}'.format(\
-            self.history['train_loss'][-1], self.history['train_accuracy'][-1], self.history['train_IoU'][-1]))
+                print('Loss {:.4f},  Acc {:.2f},  IoU {:.4f}'.format(\
+                self.history['train_loss'][-1], self.history['train_accuracy'][-1], self.history['train_IoU'][-1]))
 
-            # Validation
+                # Validation
 
-            y_true, y_pred = [], []
-            acc_meter      = tnt.meter.ClassErrorMeter(accuracy=True)
-            loss_meter     = tnt.meter.AverageValueMeter()
+                y_true, y_pred = [], []
+                acc_meter      = tnt.meter.ClassErrorMeter(accuracy=True)
+                loss_meter     = tnt.meter.AverageValueMeter()
 
-            self.net.eval()
+                self.net.eval()
 
-            for (spectra, y) in val_data_loader:
-                y_true.extend(list(map(int, y)))
-                spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
+                for (spectra, y) in val_data_loader:
+                    y_true.extend(list(map(int, y)))
+                    spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
 
-                with torch.no_grad():
-                    prediction = self.net(spectra)
-                    loss = self.criterion(prediction, y)
+                    with torch.no_grad():
+                        prediction = self.net(spectra)
+                        loss = self.criterion(prediction, y)
 
-                acc_meter.add(prediction, y)
-                loss_meter.add(loss.item())
-                y_p = prediction.argmax(dim=1).cpu().numpy()
-                y_pred.extend(list(y_p))
+                    acc_meter.add(prediction, y)
+                    loss_meter.add(loss.item())
+                    y_p = prediction.argmax(dim=1).cpu().numpy()
+                    y_pred.extend(list(y_p))
 
-            if acc_meter.value()[0] > self.best_metric:
-                self.best_metric = acc_meter.value()[0]
-                self.best_epoch = epoch
-                self.best_state = self.net.state_dict()
+                if acc_meter.value()[0] > self.best_metric:
+                    self.best_metric = acc_meter.value()[0]
+                    self.best_epoch = epoch
+                    self.best_state = self.net.state_dict()
 
-            self.history['val_accuracy'].append(acc_meter.value()[0])
-            self.history['val_loss'].append(loss_meter.value()[0])
-            self.history['val_IoU'].append(mIou(y_true, y_pred, hyperparams['n_classes']))
-            self.history['val_kappa'].append(cohen_kappa_score(y_true, y_pred))
+                self.history['val_accuracy'].append(acc_meter.value()[0])
+                self.history['val_loss'].append(loss_meter.value()[0])
+                self.history['val_IoU'].append(mIou(y_true, y_pred, hyperparams['n_classes']))
+                self.history['val_kappa'].append(cohen_kappa_score(y_true, y_pred))
 
-            print('Validation: Loss {:.4f},  Acc {:.2f},  IoU {:.4f}'.format(\
-            self.history['val_loss'][-1], self.history['val_accuracy'][-1], self.history['val_IoU'][-1]))
+                print('Validation: Loss {:.4f},  Acc {:.2f},  IoU {:.4f}'.format(\
+                self.history['val_loss'][-1], self.history['val_accuracy'][-1], self.history['val_IoU'][-1]))
+        except KeyboardInterrupt:
+            pass
 
 
     def predict_probs(self, data_loader, hyperparams):
@@ -219,7 +222,7 @@ class NeuralNetwork(Classifier):
 
 #===============================================================================
 #                  Basic and state-of-the-art neural networks
-#      Parts of code were taken from https://github.com/nshaud/DeepHyperX 
+#      Parts of code were taken from https://github.com/nshaud/DeepHyperX
 #                    released under the GPLv3 license
 #===============================================================================
 
@@ -637,10 +640,10 @@ class MultiView(Classifier):
 
 #===============================================================================
 #              Classes for Variarional Adversarial Active Learning
-#                     Code from https://github.com/sinhasam/vaal 
+#                     Code from https://github.com/sinhasam/vaal
 #                       released under the BSD 2-Clause License
 #            (Copyright (c) 2019, Samarth Sinha, Sayna Ebrahimi, Trevor Darrell
-#                               All rights reserved.) 
+#                               All rights reserved.)
 #                             was partially modified
 #===============================================================================
 
@@ -952,7 +955,7 @@ class VaalClassifier(Classifier):
 
 #===============================================================================
 #                   Class for Bayesian Active Learning
-#            Code from https://github.com/ElementAI/baal released under 
+#            Code from https://github.com/ElementAI/baal released under
 #             the following Apache License 2.0 was partially modified
 #===============================================================================
 #                               Apache License
