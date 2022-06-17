@@ -39,14 +39,6 @@ class Query:
         self.score = None
         self.use_cuda = True if hyperparams['device'] == 'cuda' else False
 
-    def pool_loader(self, pool):
-        x_pool, y_pool = pool
-        pool = data.TensorDataset(torch.from_numpy(x_pool), torch.from_numpy(y_pool))
-        loader  = data.DataLoader(pool, shuffle=False,
-                                  batch_size=self.hyperparams['batch_size'],
-                                  pin_memory=self.use_cuda)
-        return loader
-
     def train_loader(self, train_data):
         x_train, y_train = train_data
         train_dataset = data.TensorDataset(torch.from_numpy(x_train), torch.from_numpy(y_train))
@@ -103,8 +95,7 @@ class BreakingTie(Query):
     def __init__(self, n_px, hyperparams, shuffle_prop):
         super().__init__(n_px, hyperparams, shuffle_prop, reverse=False)
 
-    def compute_score(self, model, pool):
-        data_loader = self.pool_loader(pool)
+    def compute_score(self, model, data_loader):
         probs = self.compute_probs(model, data_loader)
         sorted_probs = np.sort(probs, axis=-1)
         breaking_ties = sorted_probs[:,-1] - sorted_probs[:,-2]
@@ -155,7 +146,7 @@ class VariationRatios(Query):
 #===============================================================================
 #                       Epsitemic uncertainty heuristics
 #===============================================================================
-#            Code from https://github.com/ElementAI/baal released under 
+#            Code from https://github.com/ElementAI/baal released under
 #             the following Apache License 2.0 was partially modified
 #===============================================================================
 #                               Apache License
@@ -691,7 +682,7 @@ class AdversarialSampler(Query):
 
 #===============================================================================
 #                          Core-set Active Learning
-#                          Parts of code were taken from 
+#                          Parts of code were taken from
 #           https://github.com/dsgissin/DiscriminativeActiveLearning
 #                  released under the following MIT license
 #===============================================================================
@@ -968,7 +959,7 @@ class Coreset(Query):
 #===============================================================================
 #                             Cluster based AL
 #===============================================================================
-#                                Code from 
+#                                Code from
 # https://github.com/google/active-learning/blob/master/sampling_methods/hierarchical_clustering_AL.py
 #             released under the following license was partially modified
 #===============================================================================
@@ -1036,7 +1027,7 @@ class HierarchicalClusterAL(Query):
       self.model = clustering
       self.already_clustered = True
     self.beta = hyperparams['beta']
-    self.init_at_each_step = False 
+    self.init_at_each_step = False
 
     if hyperparams['superpixels'] or hyperparams['subsample']:
         self.init_at_each_step = True
@@ -1375,7 +1366,7 @@ class HierarchicalClusterAL(Query):
         indices = subsample_idx[indices]
 
     return indices
-    
+
 #===============================================================================
 #                          Performance based Active Learning
 #===============================================================================
