@@ -17,7 +17,6 @@ import seaborn as sns
 
 from data.sensors import get_sensor, Sensor
 
-
 class Subset:
     """Generic class for a subset of the dataset"""
     def __init__(self, gt):
@@ -128,7 +127,7 @@ class Dataset:
     def load_Hdr(self, img_pth, gt_pth): #clément
         with rio.open(img_pth) as src:
             self.n_bands = src.count
-            self.img_shape = src.width, src.height
+            self.img_shape = src.height, src.width
             img_transform = src.transform
             img_crs = src.crs
 
@@ -220,7 +219,7 @@ class Dataset:
         data_ = HyperHdrX(self.img_pth, gt, **self.hyperparams)
         use_cuda = self.hyperparams['device'] == 'cuda'
         N = len(data_)
-        print(self.hyperparams['batch_size'])
+
         if split:
             train_dataset, val_dataset = data.random_split(data_, [int(0.95*N), N - int(0.95*N)])
             train_loader  = data.DataLoader(train_dataset, shuffle=True,
@@ -440,16 +439,18 @@ class HyperHdrX(torch.utils.data.Dataset):
                 ignored_labels: list, class ids to ignore
         """
         super(HyperHdrX, self).__init__()
-        self.data_pth = data_pth
         self.label = gt
         self.patch_size = hyperparams["patch_size"]
         self.ignored_labels = set(hyperparams["ignored_labels"])
+        
+        self.data_src = rio.open(data_pth)
 
         mask = np.ones_like(gt)
         for l in self.ignored_labels:
               mask[gt == l] = 0
 
         x_pos, y_pos = np.nonzero(mask)
+        print(len(x_pos))
         p = self.patch_size // 2
         if p > 0:
             self.indices = np.array(
@@ -470,6 +471,9 @@ class HyperHdrX(torch.utils.data.Dataset):
         self.labels = [self.label[x, y] for x, y in self.indices]
         np.random.shuffle(self.indices)
 
+    def closeDataFile(self):
+        self.data_src.close()
+
     def __len__(self):
         return len(self.indices)
 
@@ -478,8 +482,7 @@ class HyperHdrX(torch.utils.data.Dataset):
         x1, y1 = x - self.patch_size // 2, y - self.patch_size // 2
         x2, y2 = x1 + self.patch_size, y1 + self.patch_size
 
-        with rio.open(self.data_pth) as src:
-            data = src.read(window=Window.from_slices((x1, x2), (y1, y2)))
+        data = self.data_src.read(window=Window.from_slices((x1, x2), (y1, y2)))
 
         label = self.label[x1:x2, y1:y2]
 
