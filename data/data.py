@@ -126,10 +126,19 @@ class Dataset:
 
     def load_Hdr(self, img_pth, gt_pth): #clément
         with rio.open(img_pth) as src:
-            self.n_bands = src.count
+            bbl = src.tags(ns=src.driver)['bbl'].replace(' ', '').replace('{', '').replace('}', '').split(',')
+            bbl = tuple(map(int, bbl))
+            self.n_bands = src.count - bbl.count(0)
             self.img_shape = src.height, src.width
             img_transform = src.transform
             img_crs = src.crs
+            self.img_max = 0
+            self.img_min = float('inf')
+            for i, valide in enumerate(bbl):
+                if valide:
+                    band = src.read(i+1)
+                    self.img_max = max(self.img_max, np.max(band))    
+                    self.img_min = min(self.img_min, np.min(band))
 
         self.GT = {}
         for base, pth in gt_pth.items():
@@ -216,7 +225,7 @@ class Dataset:
             return loader
 
     def load_Hdrdata(self, gt, split=True):
-        data_ = HyperHdrX(self.img_pth, gt, **self.hyperparams)
+        data_ = HyperHdrX(self.img_pth, gt, self.img_min, self.img_max, **self.hyperparams)
         use_cuda = self.hyperparams['device'] == 'cuda'
         N = len(data_)
 
@@ -428,7 +437,7 @@ class HyperHdrX(torch.utils.data.Dataset):
     """ Generic class for a hyperspectral dataset
         Credits to https://github.com/nshaud/DeepHyperX"""
 
-    def __init__(self, data_pth, gt, **hyperparams):
+    def __init__(self, data_pth, gt, data_min, data_max, **hyperparams):
         """
         Args:
             data: 3D hyperspectral image
@@ -439,11 +448,17 @@ class HyperHdrX(torch.utils.data.Dataset):
                 ignored_labels: list, class ids to ignore
         """
         super(HyperHdrX, self).__init__()
+        #self.data_pth = data_pth
         self.label = gt
         self.patch_size = hyperparams["patch_size"]
         self.ignored_labels = set(hyperparams["ignored_labels"])
-        
+        self.data_min = data_min
+        self.data_max = data_max
         self.data_src = rio.open(data_pth)
+        
+        bbl = self.data_src.tags(ns=self.data_src.driver)['bbl'].replace(' ', '').replace('{', '').replace('}', '').split(',')
+        bbl = np.array(list(map(int, bbl)), dtype=int)
+        self.bbl_index = tuple(np.where(bbl != 0)[0] + 1)
 
         mask = np.ones_like(gt)
         for l in self.ignored_labels:
@@ -482,14 +497,14 @@ class HyperHdrX(torch.utils.data.Dataset):
         x1, y1 = x - self.patch_size // 2, y - self.patch_size // 2
         x2, y2 = x1 + self.patch_size, y1 + self.patch_size
 
-        data = self.data_src.read(window=Window.from_slices((x1, x2), (y1, y2)))
+        data = self.data_src.read(self.bbl_index, window=Window.from_slices((x1, x2), (y1, y2)))
 
         label = self.label[x1:x2, y1:y2]
 
         # Copy the data into numpy arrays (PyTorch doesn't like numpy views)
         data = np.asarray(np.copy(data), dtype="float32")
         #normalize data
-        data = (data - np.min(data)) / (np.max(data) - np.min(data))
+        data = (data - self.data_min) / (self.data_max - self.data_min)
         label = np.asarray(np.copy(label), dtype="int64")
 
         # Load the data into PyTorch tensors
