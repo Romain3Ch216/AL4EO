@@ -1,23 +1,14 @@
 # -*- coding: utf-8 -*-
 
 import os
-
-from qgis.PyQt import uic
-from qgis.PyQt import QtWidgets
 from .layers_dialog import LayersDialog
-from qgis.core import (
-    QgsProject,
-)
+from qgis.PyQt import QtWidgets, uic
+from qgis.core import QgsProject
 from qgis.gui import QgsPalettedRendererWidget
-from PyQt5.QtCore import (
-    QTimer,
-)
-from PyQt5.QtWidgets import (
-    QDialogButtonBox,
-)
-from PyQt5.QtGui import (
-    QColor,
-)
+from PyQt5.QtCore import QTimer
+from PyQt5.QtWidgets import QDialogButtonBox
+from PyQt5.QtGui import QColor
+
 
 # This loads your .ui file so that PyQt can populate your plugin with the elements from Qt Designer
 FORM_CLASS, _ = uic.loadUiType(os.path.join(

@@ -1,4 +1,3 @@
-from importlib.resources import path
 from qgis.core import (
     QgsProject,
     QgsRasterLayer,

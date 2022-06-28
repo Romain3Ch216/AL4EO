@@ -22,13 +22,9 @@
  ***************************************************************************/
 """
 
-from audioop import add
-from cProfile import label
-from operator import indexOf
 import pickle
 import os
-
-from qgis.PyQt import QtGui, QtWidgets, uic
+from qgis.PyQt import QtWidgets, uic
 from qgis.PyQt.QtCore import pyqtSignal
 from ..utils import createAnnotationRaster, createHistoryRaster
 from ..mapTool import MapTool

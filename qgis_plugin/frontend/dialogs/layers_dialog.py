@@ -1,7 +1,5 @@
 import os
-
 from PyQt5 import QtWidgets, uic
-
 from ..utils import get_layers
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
