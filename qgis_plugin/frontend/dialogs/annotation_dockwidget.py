@@ -22,10 +22,20 @@
  ***************************************************************************/
 """
 
+from audioop import add
+from cProfile import label
+from operator import indexOf
+import pickle
 import os
 
 from qgis.PyQt import QtGui, QtWidgets, uic
 from qgis.PyQt.QtCore import pyqtSignal
+from ..utils import createAnnotationRaster, createHistoryRaster
+from ..mapTool import MapTool
+from qgis.core import (
+    QgsProject,
+    QgsRasterLayer,
+)
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(os.path.dirname(__file__)), 'ui/annotation_dockwidget.ui'))
@@ -34,7 +44,7 @@ class annotationDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
 
     closingPlugin = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, iface, parent=None):
         """Constructor."""
         super(annotationDockWidget, self).__init__(parent)
         # Set up the user interface from Designer.
@@ -42,7 +52,74 @@ class annotationDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         # self.<objectname>, and you can use autoconnect slots - see
         # http://doc.qt.io/qt-5/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
+        self.iface = iface
+        self.history = None
+        self.config = None
+        self.annot_layer = None
+        self.mapTool = None
         self.setupUi(self)
+        self.pushButton_add.clicked.connect(self.addClasse)
+        self.pushButton_remove.clicked.connect(self.removeClasse)
+
+    def addClasse(self):
+        classe_id = self.spinBox.value()
+        classe_label = self.lineEdit.text()
+        index = self.comboBox_classe.findData(classe_id)
+        if index != -1:
+            self.comboBox_classe.setItemText(index, classe_label)
+        else:
+            self.comboBox_classe.addItem(classe_label, userData=classe_id)
+
+    def removeClasse(self):
+        if self.comboBox_classe.count() != 0:
+            self.comboBox_classe.removeItem(self.comboBox_classe.currentIndex())
+
+    def comboBoxChanged(self):
+        self.mapTool.classeSelected = int(self.comboBox_classe.currentData())
+
+    def initSession(self, history_path, img_pth, gt_path):
+
+        self.reset()
+        
+        annot_pth, annot_name = createAnnotationRaster(img_pth, gt_path)
+        self.annot_layer = QgsRasterLayer(annot_pth, annot_name)
+        
+        for tree_layer in QgsProject.instance().layerTreeRoot().findLayers():
+            layer = tree_layer.layer()
+            if gt_path == layer.dataProvider().dataSourceUri():
+                self.annot_layer.setRenderer(layer.renderer().clone())
+        self.annot_layer.setOpacity(0.6)
+
+        root = QgsProject.instance().layerTreeRoot()
+        QgsProject.instance().addMapLayer(self.annot_layer, False)
+        root.insertLayer(0, self.annot_layer)
+        self.annot_layer.triggerRepaint()
+
+        self.label_layerName.setText(self.annot_layer.name())
+        
+        with open(history_path, 'rb') as f:
+            self.history, classes, self.config = pickle.load(f)
+
+        createHistoryRaster(self.history['coordinates'], gt_path)
+
+        for classe_id in classes.keys():
+            self.comboBox_classe.addItem(classes[classe_id]['label'], userData=classe_id)
+
+        self.mapTool = MapTool(self.iface, self.annot_layer, int(self.comboBox_classe.currentData()))
+        self.toolButton_annotPointer.clicked.connect(self.activateMapTool)
+        
+        self.comboBox_classe.currentIndexChanged.connect(self.comboBoxChanged)
+
+    def activateMapTool(self):
+        self.iface.mapCanvas().setMapTool(self.mapTool)
+        
+    def reset(self):
+        self.comboBox_classe.clear()
+        self.lineEdit.clear()
+        self.history = None
+        self.config = None
+        self.annot_layer = None
+        self.mapTool = None
 
     def closeEvent(self, event):
         self.closingPlugin.emit()

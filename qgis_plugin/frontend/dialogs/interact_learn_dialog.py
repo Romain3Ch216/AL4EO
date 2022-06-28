@@ -103,7 +103,6 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
     def labelNameChanged(self):
         self.label_label_name.setText(self.layerLabel.name())
 
-
     def get_config(self):
         assert(self.layerData != None and self.layerLabel != None), "cannot get dataset"
 

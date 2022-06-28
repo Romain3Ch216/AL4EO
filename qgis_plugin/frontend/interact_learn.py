@@ -21,9 +21,9 @@ import pickle
 class InteractLearn(core_plugin):
     def __init__(self, iface):
         super().__init__(iface)
+        self.param = None
+        self.history_path = None
         self.dockwidget = None
-        self.history = None
-        self.annot_layer = None
 
     def initGui(self):
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
@@ -38,18 +38,19 @@ class InteractLearn(core_plugin):
         # will be set False in run()
         self.first_start = True
 
-    def runAnnotationDockWidget(self):
+    def runAnnotationDockWidget(self, history_path, img_pth, gt_path):
         if self.dockwidget == None:
-                # Create the dockwidget (after translation) and keep reference
-                self.dockwidget = annotationDockWidget
-
-        # connect to provide cleanup on closing of dockwidget
-        self.dockwidget.closingPlugin.connect(self.onClosePlugin)
-
-        # show the dockwidget
-        # TODO: fix to allow choice of dock location
-        self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
-        self.dockwidget.show()
+            # Create the dockwidget (after translation) and keep reference
+            self.dockwidget = annotationDockWidget(self.iface)
+            # connect to provide cleanup on closing of dockwidget
+            self.dockwidget.closingPlugin.connect(self.onClosePlugin)
+            # show the dockwidget
+            # TODO: fix to allow choice of dock location
+            self.dockwidget.initSession(history_path, img_pth, gt_path)
+            self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
+            self.dockwidget.show()
+        else:
+            self.dockwidget.initSession(history_path, img_pth, gt_path)
 
     def runIlearnDialog(self):
         # Create the dialog with elements (after translation) and keep reference
@@ -64,24 +65,16 @@ class InteractLearn(core_plugin):
         result = self.dlg.exec_()
         # See if OK was pressed
         if result:
-            # set rgb for data layer
-            layer = self.dlg.layerData
-            renderer = layer.renderer()
-            renderer.setRedBand(self.dlg.spinBox_R.value())
-            renderer.setGreenBand(self.dlg.spinBox_G.value())
-            renderer.setBlueBand(self.dlg.spinBox_B.value())
-            layer.setDefaultContrastEnhancement()
-            self.dlg.layerData.triggerRepaint()
 
-            #set palette for label layer
-            layer = self.dlg.layerLabel
-            layer.setRenderer(self.dlg.paletted_renderer_widget.renderer())
-            layer.setOpacity(0.6)
-            layer.triggerRepaint()
+            setLayerRGB(self.dlg.layerData, self.dlg.spinBox_R.value(), self.dlg.spinBox_G.value(), self.dlg.spinBox_B.value())
+
+            setPaletteRenderer(self.dlg.layerLabel, self.dlg.paletted_renderer_widget.renderer())
 
             config, dataset_param = self.dlg.get_config()
             self.param = {'config' : config, 'dataset_param' : dataset_param}
 
+            #self.runAnnotationDockWidget('/home/clement/code/TER/AL4EO/Results/ActiveLearning/Houston/gt1/breaking_tie/history_22_06_23_16_37.pkl', dataset_param['img_pth'], dataset_param['gt_pth']['train'][1])
+            
             task = QgsTask.fromFunction(
                 "Ilearn Query",
                 self.send_and_recv_Serveur,
@@ -94,7 +87,11 @@ class InteractLearn(core_plugin):
 
     def _completed(self, exception, result=None):
         if exception is None:
-            self.create_AnnotationLayer()
+            dataset_param = self.param['dataset_param']
+            if result != None:
+                self.runAnnotationDockWidget(result, dataset_param['img_pth'], dataset_param['gt_pth']['train'][1])
+            else:
+                self.iface.messageBar().pushMessage("Can't run annotation because Query don't finish", level=Qgis.Warning)
         else:
             self.iface.messageBar().pushMessage(str(exception), level=Qgis.Warning)
 
@@ -114,27 +111,14 @@ class InteractLearn(core_plugin):
             s.send(param_pkl)
 
             recv_size = s.recv(HEADER).decode(FORMAT)
-            history_pkl = None
+            history_path_pkl = None
             if recv_size:
-                history_pkl = s.recv(int(recv_size))
+                history_path_pkl = s.recv(int(recv_size))
 
             s.close()
 
-        if history_pkl:
-            self.history = pickle.loads(history_pkl)
-
-    def create_AnnotationLayer(self):
-
-        dataset_param = self.param['dataset_param']
-        annot_pth, annot_name = createAnnotationRaster(dataset_param['img_pth'], dataset_param['gt_pth']['train'][1])
-        self.annot_layer = QgsRasterLayer(annot_pth, annot_name)
-        self.annot_layer.setRenderer(self.dlg.paletted_renderer_widget.renderer())
-        self.annot_layer.setOpacity(0.6)
-
-        root = QgsProject.instance().layerTreeRoot()
-        QgsProject.instance().addMapLayer(self.annot_layer, False)
-        root.insertLayer(0, self.annot_layer)
-        self.annot_layer.triggerRepaint()
+        if history_path_pkl:
+            return pickle.loads(history_path_pkl)
             
 
             

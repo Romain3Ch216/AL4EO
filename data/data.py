@@ -143,15 +143,18 @@ class Dataset:
         self.GT = {}
         for base, pth in gt_pth.items():
             with rio.open(pth[self.run]) as src:
-                gt = np.zeros(self.img_shape, dtype=np.uint8)
-                reproject(
-                    source=src.read(1),
-                    destination=gt,
-                    src_transform=src.transform,
-                    src_crs=src.crs,
-                    dst_transform=img_transform,
-                    dst_crs=img_crs,
-                    resampling=Resampling.nearest)
+                if src.transform == img_transform and src.crs == img_crs and src.height == self.img_shape[0] and src.width == self.img_shape[1]:
+                    gt = src.read(1).astype(np.uint8)
+                else:
+                    gt = np.zeros(self.img_shape, dtype=np.uint8)
+                    reproject(
+                        source=src.read(1),
+                        destination=gt,
+                        src_transform=src.transform,
+                        src_crs=src.crs,
+                        dst_transform=img_transform,
+                        dst_crs=img_crs,
+                        resampling=Resampling.nearest)
             self.GT[base] = gt
 
     def load_numpy(self, img_pth, gt_pth, normalization=True, copy=True):

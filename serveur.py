@@ -82,11 +82,11 @@ if __name__ == '__main__':
                 AL = ActiveLearningFramework(dataset, model, query, config)
                 
                 AL.step()
-                AL.save() 
+                path = AL.save() 
 
-                history_pkl = pickle.dumps(AL.history)
+                path_pkl = pickle.dumps(path)
 
-                server.send(history_pkl) 
+                server.send(path_pkl) 
 
     except KeyboardInterrupt:
         server.close()  

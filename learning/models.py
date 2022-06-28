@@ -157,13 +157,12 @@ class NeuralNetwork(Classifier):
         except KeyboardInterrupt:
             pass
 
-
     def predict_probs(self, data_loader, hyperparams):
         self.net.to(hyperparams['device'])
         self.net.load_state_dict(self.best_state)
         self.net.eval()
         probs = []
-        for batch_id, (data, _) in enumerate(data_loader):
+        for batch_id, (data, _) in tqdm(enumerate(data_loader), total=len(data_loader)):
             data = data.to(hyperparams['device'])
             with torch.no_grad():
                 probs.append(self.net(data).cpu())

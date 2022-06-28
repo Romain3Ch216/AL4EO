@@ -128,11 +128,12 @@ class ActiveLearningFramework:
         if 'weights' in self.config:
             del self.config['weights']
         if 'step' in self.config:
-            pkl.dump((self.history, self.classes, self.config),\
-              open(os.path.join(self.res_dir, 'history_{}_step_{}.pkl'.format(self.config['timestamp'], self.config['step'])), 'wb'))
+            path = os.path.join(self.res_dir, 'history_{}_step_{}.pkl'.format(self.config['timestamp'], self.config['step']))
+            pkl.dump((self.history, self.classes, self.config), open(path, 'wb'))
         else:
-            pkl.dump((self.history, self.classes, self.config),\
-              open(os.path.join(self.res_dir, 'history_{}.pkl'.format(self.config['timestamp'])), 'wb'))
+            path = os.path.join(self.res_dir, 'history_{}.pkl'.format(self.config['timestamp']))
+            pkl.dump((self.history, self.classes, self.config), open(path, 'wb'))
+        return path
 
     def restore(self):
         with open(self.config['restore'], 'rb') as f:
