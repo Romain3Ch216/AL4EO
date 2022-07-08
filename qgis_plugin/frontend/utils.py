@@ -1,3 +1,4 @@
+from nbformat import read
 from qgis.core import (
     QgsProject,
     QgsRasterLayer,
@@ -11,8 +12,6 @@ from qgis.core import (
 )
 import rasterio as rio
 from rasterio.warp import reproject, Resampling
-import numpy as np
-import os
 
 class WarnQgs:
     """Warning class used to pass Exceptions to Qgis without interrupting the daemon"""
@@ -72,13 +71,7 @@ def setLayerRGB(layer, R, G, B):
     layer.setDefaultContrastEnhancement()
     layer.triggerRepaint()
 
-def setPaletteRenderer(layer, renderer):
-    #set palette for label layer
-    layer.setRenderer(renderer)
-    layer.setOpacity(0.6)
-    layer.triggerRepaint()
-
-def createAnnotationRaster(img_pth, gt_pth):
+def formatAnnotationRaster(img_pth, gt_pth):
     with rio.open(img_pth) as src:
         dst_transform = src.transform
         dst_crs = src.crs
@@ -92,12 +85,9 @@ def createAnnotationRaster(img_pth, gt_pth):
             'width': dst_shape[1],
             'height': dst_shape[0]
         })
-        
-        head, tail = os.path.split(gt_pth)
-        name = "annot"+tail
-        out_pth = os.path.join(head, name)
+        dst_tags = src.tags(ns=src.driver)
 
-        with rio.open(out_pth, 'w', **kwargs) as dst:
+        with rio.open(gt_pth, 'w', **kwargs) as dst:
             reproject(
                 source=rio.band(src, 1),
                 destination=rio.band(dst, 1),
@@ -106,16 +96,53 @@ def createAnnotationRaster(img_pth, gt_pth):
                 dst_transform=dst_transform,
                 dst_crs=dst_crs,
                 resampling=Resampling.nearest)
+            dst.update_tags(ns=dst.driver, classes=dst_tags['classes'])
+            dst.update_tags(ns=dst.driver, class_lookup=dst_tags['class_lookup'])
+            dst.update_tags(ns=dst.driver, class_name=dst_tags['class_names'])
+    correctTagNameIssue(gt_pth)
 
-    return out_pth, name
+def getClasseNameColor(gt_path):
+    with rio.open(gt_path) as src:
+        src_tags = src.tags(ns=src.driver)
+        class_names = src_tags['class_names'].replace(' ', '').replace('{', '').replace('}', '').split(',')
+        class_lookup = src_tags['class_lookup'].replace(' ', '').replace('{', '').replace('}', '').split(',')
 
-def createHistoryRaster(coordinates, gt_pth):
+    class_color = [(int(class_lookup[i]), int(class_lookup[i+1]), int(class_lookup[i+2])) for i in range(0, len(class_lookup), 3)]
+
+    return class_names, class_color
+
+def updateClassNameColor(class_names, class_color, gt_pth):
+    class_names_string = '{'
+    for i in range(len(class_names)-1):
+        class_names_string += class_names[i] + ', '
+    class_names_string += class_names[len(class_names)-1] + '}'
+    class_lookup_string = str(class_color).replace('[', '{').replace(']', '}').replace('(','').replace(')','')
+
+    with rio.open(gt_pth) as src:
+        kwargs = src.profile.copy()
+        with rio.open(gt_pth, 'w', **kwargs) as dst:
+            dst.write(src.read(1),1)
+            dst.update_tags(ns=dst.driver, classes=len(class_names))
+            dst.update_tags(ns=dst.driver, class_lookup=class_lookup_string)
+            dst.update_tags(ns=dst.driver, class_name=class_names_string)
+    correctTagNameIssue(gt_pth)
+
+def correctTagNameIssue(gt_pth):
+    gt_hdr_pth = gt_pth[:-4] + "hdr"
+    file_content = ""
+    with open(gt_hdr_pth, "r") as f:
+        file_content = f.read()
+    file_content = file_content.replace("class name =","class names =")
+    with open(gt_hdr_pth, "w") as f:
+        f.write(file_content)
+
+def createHistoryLayer(name, coordinates, gt_pth):
     with rio.open(gt_pth, 'r') as src:
         transform = src.transform
         crs = QgsCoordinateReferenceSystem()
         crs.createFromString(src.crs.to_string())
     
-    vl = QgsVectorLayer("MultiPoint", "history_points", "memory", crs=crs)
+    vl = QgsVectorLayer("MultiPoint", name, "memory", crs=crs)
     pr = vl.dataProvider()
     # Enter editing mode
     vl.startEditing()

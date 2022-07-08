@@ -2,13 +2,10 @@
 
 import os
 from .layers_dialog import LayersDialog
+from ..utils import getClasseNameColor
 from qgis.PyQt import QtWidgets, uic
 from qgis.core import QgsProject
-from qgis.gui import QgsPalettedRendererWidget
-from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QDialogButtonBox
-from PyQt5.QtGui import QColor
-
 
 # This loads your .ui file so that PyQt can populate your plugin with the elements from Qt Designer
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
@@ -21,7 +18,6 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
         self.setModal(True)
         self.layerData = None
         self.layerLabel = None
-        self.paletted_renderer_widget = None
         # Set up the user interface from Designer through FORM_CLASS.
         # After self.setupUi() you can access any designer object by doing
         # self.<objectname>, and you can use autoconnect slots - see
@@ -72,24 +68,14 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
                 self.label_label_name.setText(item.text())
                 self.layerLabel = QgsProject.instance().mapLayersByName(item.text())[0]
                 self.layerLabel.nameChanged.connect(self.labelNameChanged)
-                self.layerLabel.willBeDeleted.connect(self.labelLayerRemoved)
-                if not self.paletted_renderer_widget:
-                    self.paletted_renderer_widget = QgsPalettedRendererWidget(self.layerLabel)
-                    self.paletted_renderer_widget.classify()
-                    self.verticalLayout_Wclasse.addWidget(self.paletted_renderer_widget)
-                else:
-                    self.paletted_renderer_widget.classify()
+                self.layerLabel.willBeDeleted.connect(self.labelLayerRemoved)  
                 if self.layerData != None:
                     self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
 
     def labelLayerRemoved(self):
         self.layerLabel = None
         self.label_label_name.setText('none')
-        for i in reversed(range(self.verticalLayout_Wclasse.count())): 
-            self.verticalLayout_Wclasse.takeAt(i).widget().deleteLater()
-        self.paletted_renderer_widget = None
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
-        QTimer.singleShot(0, self.adjustSize)
 
     def labelNameChanged(self):
         self.label_label_name.setText(self.layerLabel.name())
@@ -101,12 +87,10 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
         dataset_param['img_pth'] = self.layerData.dataProvider().dataSourceUri()
         dataset_param['gt_pth'] = {'train' : {1 : self.layerLabel.dataProvider().dataSourceUri()}}
 
-        label_values, palette = zip(*self.layerLabel.renderer().legendSymbologyItems())
-        label_values, palette = list(label_values), list(map(QColor.getRgb, palette))
-        palette = [(p[0],p[1],p[2]) for p in palette]
+        class_names, class_color = getClasseNameColor(self.layerLabel.dataProvider().dataSourceUri())
 
-        dataset_param['palette'] = palette
-        dataset_param['label_values'] = label_values
+        dataset_param['label_values'] = class_names
+        dataset_param['palette'] = class_color
 
         dataset_param['ignored_labels'] = [0]
         dataset_param['n_bands'] = self.layerData.bandCount()

@@ -20,7 +20,7 @@
    <enum>Qt::StrongFocus</enum>
   </property>
   <property name="windowTitle">
-   <string>Dataset config</string>
+   <string>Query config</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="sizeConstraint">
@@ -41,12 +41,23 @@
          <property name="sizeConstraint">
           <enum>QLayout::SetDefaultConstraint</enum>
          </property>
-         <item row="0" column="3">
-          <widget class="QToolButton" name="toolButton_selectData">
-           <property name="text">
-            <string>...</string>
-           </property>
-          </widget>
+         <item row="0" column="2">
+          <layout class="QFormLayout" name="formLayout">
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_data_title">
+             <property name="text">
+              <string>Data:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLabel" name="label_data_name">
+             <property name="text">
+              <string>none</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </item>
          <item row="2" column="2" colspan="2">
           <layout class="QHBoxLayout" name="horizontalLayout_2">
@@ -99,6 +110,13 @@
            </property>
           </widget>
          </item>
+         <item row="0" column="3">
+          <widget class="QToolButton" name="toolButton_selectData">
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
          <item row="1" column="2">
           <layout class="QFormLayout" name="formLayout_2">
            <item row="0" column="0">
@@ -117,45 +135,20 @@
            </item>
           </layout>
          </item>
-         <item row="0" column="2">
-          <layout class="QFormLayout" name="formLayout">
-           <item row="0" column="0">
-            <widget class="QLabel" name="label_data_title">
-             <property name="text">
-              <string>Data:</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QLabel" name="label_data_name">
-             <property name="text">
-              <string>none</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
         </layout>
-       </item>
-       <item alignment="Qt::AlignTop">
-        <widget class="QLabel" name="label">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Maximum">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="text">
-          <string>Label classe config:</string>
-         </property>
-        </widget>
        </item>
        <item>
-        <layout class="QVBoxLayout" name="verticalLayout_Wclasse">
-         <property name="sizeConstraint">
-          <enum>QLayout::SetDefaultConstraint</enum>
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
          </property>
-        </layout>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
        </item>
       </layout>
      </item>
@@ -332,7 +325,6 @@
   </layout>
   <zorder>buttonBox</zorder>
   <zorder>line</zorder>
-  <zorder>horizontalLayoutWidget</zorder>
  </widget>
  <resources/>
  <connections>

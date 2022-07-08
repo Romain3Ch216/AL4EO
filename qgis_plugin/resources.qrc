@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/icons" >
-        <file alias="icon.png">frontend/icons/icon.png</file>
+        <file alias="letter-a.png">frontend/icons/letter-a.png</file>
+        <file alias="letter-q.png">frontend/icons/letter-q.png</file>
     </qresource>
 </RCC>

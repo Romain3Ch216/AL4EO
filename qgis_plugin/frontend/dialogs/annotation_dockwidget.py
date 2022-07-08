@@ -26,12 +26,9 @@ import pickle
 import os
 from qgis.PyQt import QtWidgets, uic
 from qgis.PyQt.QtCore import pyqtSignal
-from ..utils import createAnnotationRaster, createHistoryRaster
+from qgis.core import QgsPalettedRasterRenderer
+from ..utils import createHistoryLayer, getClasseNameColor, updateClassNameColor
 from ..mapTool import MapTool
-from qgis.core import (
-    QgsProject,
-    QgsRasterLayer,
-)
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(os.path.dirname(__file__)), 'ui/annotation_dockwidget.ui'))
@@ -53,69 +50,54 @@ class annotationDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.config = None
         self.annot_layer = None
         self.mapTool = None
+        self.class_names = None
+        self.class_color = None
         self.setupUi(self)
         self.pushButton_add.clicked.connect(self.addClasse)
-        self.pushButton_remove.clicked.connect(self.removeClasse)
 
     def addClasse(self):
-        classe_id = self.spinBox.value()
-        classe_label = self.lineEdit.text()
-        index = self.comboBox_classe.findData(classe_id)
-        if index != -1:
-            self.comboBox_classe.setItemText(index, classe_label)
-        else:
-            self.comboBox_classe.addItem(classe_label, userData=classe_id)
+        new_class_name = self.lineEdit.text()
+        new_class_color = self.mColorButton.color()
+        new_value = len(self.class_names)
+        self.class_names.append(new_class_name)
+        self.class_color.append((new_class_color.red(), new_class_color.green(), new_class_color.blue()))
+        updateClassNameColor(self.class_names, self.class_color, self.annot_layer.dataProvider().dataSourceUri())
+        self.comboBox_classe.addItem(new_class_name, userData=new_value)
 
-    def removeClasse(self):
-        if self.comboBox_classe.count() != 0:
-            self.comboBox_classe.removeItem(self.comboBox_classe.currentIndex())
+        rclasses = self.annot_layer.renderer().classes()
+        rclasses.append(QgsPalettedRasterRenderer.Class(new_value, new_class_color, new_class_name))
+        self.annot_layer.setRenderer(QgsPalettedRasterRenderer(self.annot_layer.dataProvider(), 1, rclasses))
 
     def comboBoxChanged(self):
         self.mapTool.classeSelected = int(self.comboBox_classe.currentData())
+        index = self.comboBox_classe.currentIndex()
+        color = self.class_color[index]
+        self.toolButton_color.setStyleSheet("background:rgb({},{},{});".format(color[0], color[1], color[2]))
 
-    def initSession(self, history_path, img_pth, gt_path):
-
-        self.reset()
-        
-        annot_pth, annot_name = createAnnotationRaster(img_pth, gt_path)
-        self.annot_layer = QgsRasterLayer(annot_pth, annot_name)
-        
-        for tree_layer in QgsProject.instance().layerTreeRoot().findLayers():
-            layer = tree_layer.layer()
-            if gt_path == layer.dataProvider().dataSourceUri():
-                self.annot_layer.setRenderer(layer.renderer().clone())
-        self.annot_layer.setOpacity(0.6)
-
-        root = QgsProject.instance().layerTreeRoot()
-        QgsProject.instance().addMapLayer(self.annot_layer, False)
-        root.insertLayer(0, self.annot_layer)
-        self.annot_layer.triggerRepaint()
+    def initSession(self, history_path, annot_layer):
+    
+        self.annot_layer = annot_layer
 
         self.label_layerName.setText(self.annot_layer.name())
         
         with open(history_path, 'rb') as f:
-            self.history, classes, self.config = pickle.load(f)
+            self.history, _, self.config = pickle.load(f)
 
-        createHistoryRaster(self.history['coordinates'], gt_path)
+        createHistoryLayer(os.path.basename(history_path)[:-4], self.history['coordinates'], self.annot_layer.dataProvider().dataSourceUri())
 
-        for classe_id in classes.keys():
-            self.comboBox_classe.addItem(classes[classe_id]['label'], userData=classe_id)
+        self.class_names, self.class_color = getClasseNameColor(self.annot_layer.dataProvider().dataSourceUri())
+        
+        for i, names in enumerate(self.class_names):
+            self.comboBox_classe.addItem(names, userData=i)
 
-        self.mapTool = MapTool(self.iface, self.annot_layer, int(self.comboBox_classe.currentData()))
+        self.mapTool = MapTool(self.iface.mapCanvas(), self.annot_layer, int(self.comboBox_classe.currentData()))
         self.toolButton_annotPointer.clicked.connect(self.activateMapTool)
         
         self.comboBox_classe.currentIndexChanged.connect(self.comboBoxChanged)
+        self.comboBoxChanged()
 
     def activateMapTool(self):
         self.iface.mapCanvas().setMapTool(self.mapTool)
-        
-    def reset(self):
-        self.comboBox_classe.clear()
-        self.lineEdit.clear()
-        self.history = None
-        self.config = None
-        self.annot_layer = None
-        self.mapTool = None
 
     def closeEvent(self, event):
         self.closingPlugin.emit()
