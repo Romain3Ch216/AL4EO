@@ -5,7 +5,6 @@ from .layers_dialog import LayersDialog
 from ..utils import getClasseNameColor
 from qgis.PyQt import QtWidgets, uic
 from qgis.core import QgsProject
-from PyQt5.QtWidgets import QDialogButtonBox
 
 # This loads your .ui file so that PyQt can populate your plugin with the elements from Qt Designer
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
@@ -24,7 +23,7 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
         # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
-        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
         self.toolButton_selectData.clicked.connect(self.selectData)
         self.toolButton_selectLabel.clicked.connect(self.selectLabel)
 
@@ -48,7 +47,7 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
                 self.layerData.nameChanged.connect(self.dataNameChanged)
                 self.layerData.willBeDeleted.connect(self.dataLayerRemoved)
                 if self.layerLabel != None:
-                    self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+                    self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(True)
 
     def dataNameChanged(self):
         self.label_data_name.setText(self.layerData.name())
@@ -56,7 +55,7 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
     def dataLayerRemoved(self):
         self.layerData = None
         self.label_data_name.setText('none')
-        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
 
     def selectLabel(self):
         sub_dlg = LayersDialog(1)
@@ -70,12 +69,12 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
                 self.layerLabel.nameChanged.connect(self.labelNameChanged)
                 self.layerLabel.willBeDeleted.connect(self.labelLayerRemoved)  
                 if self.layerData != None:
-                    self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+                    self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(True)
 
     def labelLayerRemoved(self):
         self.layerLabel = None
         self.label_label_name.setText('none')
-        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
 
     def labelNameChanged(self):
         self.label_label_name.setText(self.layerLabel.name())

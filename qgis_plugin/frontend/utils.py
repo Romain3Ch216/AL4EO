@@ -1,4 +1,3 @@
-from nbformat import read
 from qgis.core import (
     QgsProject,
     QgsRasterLayer,
