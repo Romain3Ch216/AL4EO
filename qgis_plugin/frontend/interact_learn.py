@@ -108,7 +108,6 @@ class InteractLearn(core_plugin):
 
     def _completed(self, exception, result=None):
         if exception is None:
-            dataset_param = self.param['dataset_param']
             if result != None:
                 self.runAnnotationDockWidget(result, self.layerLabel)
             else:

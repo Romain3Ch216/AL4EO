@@ -1,9 +1,11 @@
+from sklearn.utils import shuffle
 import torch
 import torch.utils.data as data
 import numpy as np
 import spectral
 import spectral.io.envi as envi
 import rasterio as rio
+import rasterio.rio.insp
 from rasterio.warp import reproject, Resampling
 from rasterio.windows import Window
 
@@ -16,6 +18,8 @@ from skimage.segmentation import slic
 import seaborn as sns
 
 from data.sensors import get_sensor, Sensor
+
+import pdb
 
 class Subset:
     """Generic class for a subset of the dataset"""
@@ -127,18 +131,13 @@ class Dataset:
     def load_Hdr(self, img_pth, gt_pth): #clément
         with rio.open(img_pth) as src:
             bbl = src.tags(ns=src.driver)['bbl'].replace(' ', '').replace('{', '').replace('}', '').split(',')
-            bbl = tuple(map(int, bbl))
-            self.n_bands = src.count - bbl.count(0)
+            bbl = np.array(list(map(int, bbl)), dtype=int)
+            bbl = tuple(np.where(bbl != 0)[0] + 1)
+            self.n_bands = len(bbl)
             self.img_shape = src.height, src.width
             img_transform = src.transform
             img_crs = src.crs
-            self.img_max = 0
-            self.img_min = float('inf')
-            for i, valide in enumerate(bbl):
-                if valide:
-                    band = src.read(i+1)
-                    self.img_max = max(self.img_max, np.max(band))    
-                    self.img_min = min(self.img_min, np.min(band))
+            self.img_min, self.img_max, _ = rasterio.rio.insp.stats(src.read(bbl))
 
         self.GT = {}
         for base, pth in gt_pth.items():
@@ -227,21 +226,24 @@ class Dataset:
                                       batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
             return loader
 
-    def load_Hdrdata(self, gt, split=True):
-        data_ = HyperHdrX(self.img_pth, gt, self.img_min, self.img_max, **self.hyperparams)
+    def load_Hdrdata(self, gt, split=True, shuffle=True):
+        data_ = HyperHdrX(self.img_pth, gt, self.img_min, self.img_max, shuffle, **self.hyperparams)
         use_cuda = self.hyperparams['device'] == 'cuda'
         N = len(data_)
 
         if split:
-            train_dataset, val_dataset = data.random_split(data_, [int(0.95*N), N - int(0.95*N)])
-            train_loader  = data.DataLoader(train_dataset, shuffle=True,
+            indices = np.arange(N)
+            split_indice = int(0.95*N)
+            train_indices, val_indices = indices[:split_indice], indices[split_indice:]
+            train_sampler = SubsetSampler(train_indices)
+            val_sampler = SubsetSampler(val_indices)
+            train_loader  = data.DataLoader(data_, sampler=train_sampler,
                                       batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
-            val_loader  = data.DataLoader(val_dataset, shuffle=True,
+            val_loader  = data.DataLoader(data_, sampler = val_sampler,
                                       batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
             return train_loader, val_loader
         else:
-            loader  = data.DataLoader(data_, shuffle=False,
-                                      batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
+            loader  = data.DataLoader(data_, batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
             return loader
 
     def data(self, gt):
@@ -436,11 +438,21 @@ class Dataset:
             k = b+k
         self.img = np.asarray(res, dtype='float32')
 
+class SubsetSampler(data.Sampler):
+    def __init__(self, indices):
+        self.indices = indices
+
+    def __iter__(self):
+        return (i for i in self.indices)
+
+    def __len__(self):
+        return len(self.indices)    
+
 class HyperHdrX(torch.utils.data.Dataset):
     """ Generic class for a hyperspectral dataset
         Credits to https://github.com/nshaud/DeepHyperX"""
 
-    def __init__(self, data_pth, gt, data_min, data_max, **hyperparams):
+    def __init__(self, data_pth, gt, data_min, data_max, shuffle, **hyperparams):
         """
         Args:
             data: 3D hyperspectral image
@@ -458,51 +470,94 @@ class HyperHdrX(torch.utils.data.Dataset):
         self.data_min = data_min
         self.data_max = data_max
         self.data_src = rio.open(data_pth)
+        self.shuffle = shuffle
         
         bbl = self.data_src.tags(ns=self.data_src.driver)['bbl'].replace(' ', '').replace('{', '').replace('}', '').split(',')
         bbl = np.array(list(map(int, bbl)), dtype=int)
         self.bbl_index = tuple(np.where(bbl != 0)[0] + 1)
 
+        block_hw = 2,4
+        bh = gt.shape[0] // block_hw[0]
+        bw = gt.shape[1] // block_hw[1]
+        self.blocks_slices = []
+        for i in range(block_hw[0]):
+            for j in range(block_hw[1]):
+                slice_x = (i*bh, gt.shape[0]) if i == block_hw[0]-1 else (i*bh, (i+1)*bh)
+                slice_y = (j*bw, gt.shape[1]) if j == block_hw[1]-1 else (j*bw, (j+1)*bw)
+                self.blocks_slices.append((slice_x, slice_y))
+
         mask = np.ones_like(gt)
         for l in self.ignored_labels:
-              mask[gt == l] = 0
+            mask[gt == l] = 0
 
         x_pos, y_pos = np.nonzero(mask)
         print(len(x_pos))
         p = self.patch_size // 2
-        if p > 0:
-            self.indices = np.array(
-                [
-                    (x, y)
-                    for x, y in zip(x_pos, y_pos)
-                    if x > p and x < gt.shape[0] - p and y > p and y < gt.shape[0] - p and self.label[x, y] != 0
-                ]
-            )
-        else:
-            self.indices = np.array(
-                [
-                    (x, y)
-                    for x, y in zip(x_pos, y_pos)
-                ]
-            )
+        self.indices = [[] for _ in range(block_hw[0]*block_hw[1])]
+        for x, y in zip(x_pos, y_pos):
+            block_indice_x = x // bh
+            block_indice_y = y // bw
+            block_indice_x = block_indice_x if block_indice_x < block_hw[0] else block_indice_x-1
+            block_indice_y = block_indice_y if block_indice_y < block_hw[1] else block_indice_y-1
+            block_indice = block_indice_x*block_hw[1] + block_indice_y
+            block_slice = self.blocks_slices[block_indice]
+            if p > 0:
+                if (x > p + block_slice[0][0] and x < block_slice[0][1] - p and 
+                y > p + block_slice[1][0] and y < block_slice[1][1] - p and self.label[x, y] != 0):
+                    self.indices[block_indice].append((x, y))
+            else:
+                self.indices[block_indice].append((x, y))
 
-        self.labels = [self.label[x, y] for x, y in self.indices]
-        np.random.shuffle(self.indices)
+        i = 0
+        while(i < len(self.indices)):
+            if self.indices[i] == []:
+                del self.blocks_slices[i]
+                del self.indices[i]
+            else:
+                i+=1
+
+        self.blocks_slices = np.array(self.blocks_slices, dtype=tuple)
+        self.indices = np.array(self.indices, dtype=list)
 
     def closeDataFile(self):
         self.data_src.close()
 
     def __len__(self):
-        return len(self.indices)
+        return sum([len(self.indices[i]) for i in range(len(self.indices))])
 
     def __getitem__(self, i):
-        x, y = self.indices[i]
+        
+        if i == 0:
+            if self.shuffle:
+                #shuffle pixels in each blocks and blocks
+                for indice in self.indices:
+                    np.random.shuffle(indice)
+                random_idx = np.arange(len(self.indices))
+                np.random.shuffle(random_idx)
+                self.blocks_slices[random_idx]
+                self.indices[random_idx]
+
+            self.block_index = 0
+            self.data_block = self.data_src.read(self.bbl_index, window=Window.from_slices(tuple(self.blocks_slices[self.block_index][0]), tuple(self.blocks_slices[self.block_index][1])))
+            self.len_last = 0
+            self.len_curr = len(self.indices[self.block_index])
+        else:
+            if i >= self.len_curr:
+                self.block_index += 1
+                self.data_block = self.data_src.read(self.bbl_index, window=Window.from_slices(tuple(self.blocks_slices[self.block_index][0]), tuple(self.blocks_slices[self.block_index][1])))
+                self.len_last = self.len_curr
+                self.len_curr += len(self.indices[self.block_index])
+
+        x, y = self.indices[self.block_index][i-self.len_last]
         x1, y1 = x - self.patch_size // 2, y - self.patch_size // 2
         x2, y2 = x1 + self.patch_size, y1 + self.patch_size
 
-        data = self.data_src.read(self.bbl_index, window=Window.from_slices((x1, x2), (y1, y2)))
-
         label = self.label[x1:x2, y1:y2]
+
+        x1, x2 = x1 - self.blocks_slices[self.block_index][0][0], x2 - self.blocks_slices[self.block_index][0][0]
+        y1, y2 = y1 - self.blocks_slices[self.block_index][1][0], y2 - self.blocks_slices[self.block_index][1][0]
+
+        data = self.data_block[:, x1:x2, y1:y2]
 
         # Copy the data into numpy arrays (PyTorch doesn't like numpy views)
         data = np.asarray(np.copy(data), dtype="float32")

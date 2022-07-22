@@ -5,7 +5,7 @@ class MapTool(QgsMapToolEmitPoint):
     def __init__(self, mapCanvas, layer, classeSelected):
         QgsMapToolEmitPoint.__init__(self, mapCanvas)
         self.layer = layer
-        self.provider = layer.dataProvider()
+        self.provider = self.layer.dataProvider()
         self.block = QgsRasterBlock(self.provider.dataType(1), 1, 1)
         self.width = self.layer.width()
         self.height = self.layer.height()

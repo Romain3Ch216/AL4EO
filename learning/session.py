@@ -1,4 +1,5 @@
 # Query
+from sklearn.utils import shuffle
 from learning.query import load_query
 
 # Utils
@@ -57,7 +58,7 @@ class ActiveLearningFramework:
         if self.dataset.type == 'npy':
             pool = self.dataset.pool_data
         else:
-            pool = self.dataset.load_Hdrdata(self.dataset.pool(), split=False)
+            pool = self.dataset.load_Hdrdata(self.dataset.pool(), shuffle=False, split=False)
 
 
         if self.config['superpixels']:
