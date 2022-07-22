@@ -1,4 +1,3 @@
-from sklearn.utils import shuffle
 import torch
 import torch.utils.data as data
 import numpy as np
@@ -18,8 +17,6 @@ from skimage.segmentation import slic
 import seaborn as sns
 
 from data.sensors import get_sensor, Sensor
-
-import pdb
 
 class Subset:
     """Generic class for a subset of the dataset"""

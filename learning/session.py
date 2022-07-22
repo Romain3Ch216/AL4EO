@@ -1,5 +1,4 @@
 # Query
-from sklearn.utils import shuffle
 from learning.query import load_query
 
 # Utils
