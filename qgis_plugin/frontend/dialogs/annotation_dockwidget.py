@@ -55,6 +55,7 @@ class annotationDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.setupUi(self)
         self.pushButton_add.clicked.connect(self.addClasse)
 
+    #adding classe to comboBox, update image data header with this classe and add classe and color to layer palette
     def addClasse(self):
         new_class_name = self.lineEdit.text()
         new_class_color = self.mColorButton.color()
@@ -69,27 +70,33 @@ class annotationDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.annot_layer.setRenderer(QgsPalettedRasterRenderer(self.annot_layer.dataProvider(), 1, rclasses))
 
     def comboBoxChanged(self):
+        #when comboBox selection change, update MapTool selected classe and color indicator
         self.mapTool.classeSelected = int(self.comboBox_classe.currentData())
         index = self.comboBox_classe.currentIndex()
         color = self.class_color[index]
         self.toolButton_color.setStyleSheet("background:rgb({},{},{});".format(color[0], color[1], color[2]))
 
+    #init dockWidget requirement 
     def initSession(self, history_path, annot_layer):
     
         self.annot_layer = annot_layer
 
         self.label_layerName.setText(self.annot_layer.name())
         
+        #load history
         with open(history_path, 'rb') as f:
             self.history, _, self.config = pickle.load(f)
 
+        #create history layer 
         createHistoryLayer(os.path.basename(history_path)[:-4], self.history['coordinates'], self.annot_layer.dataProvider().dataSourceUri())
 
+        #get layer classe and classe color
         self.class_names, self.class_color = getClasseNameColor(self.annot_layer.dataProvider().dataSourceUri())
         
         for i, names in enumerate(self.class_names):
             self.comboBox_classe.addItem(names, userData=i)
 
+        #create MapTool for annotation
         self.mapTool = MapTool(self.iface.mapCanvas(), self.annot_layer, int(self.comboBox_classe.currentData()))
         self.toolButton_annotPointer.clicked.connect(self.activateMapTool)
         

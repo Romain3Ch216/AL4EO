@@ -94,6 +94,7 @@ class Dataset:
         #Load image and ground truth
         type = img_pth[-3:]
 
+        #Test if numpy or tiff image and load it
         if type == 'npy':
             self.load_numpy(img_pth, gt_pth)
             self.n_bands = n_bands if n_bands else self.img.shape[-1] 
@@ -125,7 +126,9 @@ class Dataset:
         if len(hyperparams['remove']) > 0:
             self.remove()
 
-    def load_Hdr(self, img_pth, gt_pth): #clément
+    #Load geo tiff gt image and image data metadata and reproject gt 
+    def load_Hdr(self, img_pth, gt_pth): 
+        #load metadata of image data (bad bands, n_bands, shape, min, max...)
         with rio.open(img_pth) as src:
             bbl = src.tags(ns=src.driver)['bbl'].replace(' ', '').replace('{', '').replace('}', '').split(',')
             bbl = np.array(list(map(int, bbl)), dtype=int)
@@ -136,6 +139,7 @@ class Dataset:
             img_crs = src.crs
             self.img_min, self.img_max, _ = rasterio.rio.insp.stats(src.read(bbl))
 
+        #load gt image in memory and reproject it to the same shape as image data 
         self.GT = {}
         for base, pth in gt_pth.items():
             with rio.open(pth[self.run]) as src:
@@ -223,17 +227,23 @@ class Dataset:
                                       batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
             return loader
 
+    #Create dataloader for geo referenced image, if shuffle == True, indice are shuffled in the HyperHdrX class
     def load_Hdrdata(self, gt, split=True, shuffle=True):
         data_ = HyperHdrX(self.img_pth, gt, self.img_min, self.img_max, shuffle, **self.hyperparams)
         use_cuda = self.hyperparams['device'] == 'cuda'
         N = len(data_)
 
         if split:
+            #split the indices into two continuous index arrays
             indices = np.arange(N)
             split_indice = int(0.95*N)
             train_indices, val_indices = indices[:split_indice], indices[split_indice:]
+
+            #create Subset Sampler with previous index arrays
             train_sampler = SubsetSampler(train_indices)
             val_sampler = SubsetSampler(val_indices)
+
+            #create DataLoader with previous Subset Sampler
             train_loader  = data.DataLoader(data_, sampler=train_sampler,
                                       batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
             val_loader  = data.DataLoader(data_, sampler = val_sampler,
@@ -460,19 +470,23 @@ class HyperHdrX(torch.utils.data.Dataset):
                 ignored_labels: list, class ids to ignore
         """
         super(HyperHdrX, self).__init__()
-        #self.data_pth = data_pth
+
         self.label = gt
         self.patch_size = hyperparams["patch_size"]
         self.ignored_labels = set(hyperparams["ignored_labels"])
         self.data_min = data_min
         self.data_max = data_max
-        self.data_src = rio.open(data_pth)
         self.shuffle = shuffle
+
+        #open image data file
+        self.data_src = rio.open(data_pth)
         
+        #Get bad bands
         bbl = self.data_src.tags(ns=self.data_src.driver)['bbl'].replace(' ', '').replace('{', '').replace('}', '').split(',')
         bbl = np.array(list(map(int, bbl)), dtype=int)
         self.bbl_index = tuple(np.where(bbl != 0)[0] + 1)
 
+        #create list of slices of the image based on block_hw
         block_hw = 2,4
         bh = gt.shape[0] // block_hw[0]
         bw = gt.shape[1] // block_hw[1]
@@ -483,12 +497,16 @@ class HyperHdrX(torch.utils.data.Dataset):
                 slice_y = (j*bw, gt.shape[1]) if j == block_hw[1]-1 else (j*bw, (j+1)*bw)
                 self.blocks_slices.append((slice_x, slice_y))
 
+        #remove ignored labels from gt
         mask = np.ones_like(gt)
         for l in self.ignored_labels:
             mask[gt == l] = 0
 
+        #get all non zero pixel indice (row and col)
         x_pos, y_pos = np.nonzero(mask)
         print(len(x_pos))
+
+        #arrange non zero pixels indices by block 
         p = self.patch_size // 2
         self.indices = [[] for _ in range(block_hw[0]*block_hw[1])]
         for x, y in zip(x_pos, y_pos):
@@ -505,6 +523,7 @@ class HyperHdrX(torch.utils.data.Dataset):
             else:
                 self.indices[block_indice].append((x, y))
 
+        #remove possibly empty blocks
         i = 0
         while(i < len(self.indices)):
             if self.indices[i] == []:
@@ -513,6 +532,7 @@ class HyperHdrX(torch.utils.data.Dataset):
             else:
                 i+=1
 
+        #Convert blocks slices and indices into numpy array
         self.blocks_slices = np.array(self.blocks_slices, dtype=tuple)
         self.indices = np.array(self.indices, dtype=list)
 
@@ -526,7 +546,7 @@ class HyperHdrX(torch.utils.data.Dataset):
         
         if i == 0:
             if self.shuffle:
-                #shuffle pixels in each blocks and blocks
+                #shuffle pixels in each blocks and shuffle blocks
                 for indice in self.indices:
                     np.random.shuffle(indice)
                 random_idx = np.arange(len(self.indices))
@@ -534,26 +554,32 @@ class HyperHdrX(torch.utils.data.Dataset):
                 self.blocks_slices[random_idx]
                 self.indices[random_idx]
 
+            #init block index, block lenght and load fisrt block
             self.block_index = 0
             self.data_block = self.data_src.read(self.bbl_index, window=Window.from_slices(tuple(self.blocks_slices[self.block_index][0]), tuple(self.blocks_slices[self.block_index][1])))
             self.len_last = 0
             self.len_curr = len(self.indices[self.block_index])
         else:
             if i >= self.len_curr:
+                #change block index, block lenght and load next block
                 self.block_index += 1
                 self.data_block = self.data_src.read(self.bbl_index, window=Window.from_slices(tuple(self.blocks_slices[self.block_index][0]), tuple(self.blocks_slices[self.block_index][1])))
                 self.len_last = self.len_curr
                 self.len_curr += len(self.indices[self.block_index])
 
+        #get pixel coord based on i 
         x, y = self.indices[self.block_index][i-self.len_last]
         x1, y1 = x - self.patch_size // 2, y - self.patch_size // 2
         x2, y2 = x1 + self.patch_size, y1 + self.patch_size
 
+        #get label
         label = self.label[x1:x2, y1:y2]
 
+        #convert pixel coord to block index 
         x1, x2 = x1 - self.blocks_slices[self.block_index][0][0], x2 - self.blocks_slices[self.block_index][0][0]
         y1, y2 = y1 - self.blocks_slices[self.block_index][1][0], y2 - self.blocks_slices[self.block_index][1][0]
 
+        #get data
         data = self.data_block[:, x1:x2, y1:y2]
 
         # Copy the data into numpy arrays (PyTorch doesn't like numpy views)

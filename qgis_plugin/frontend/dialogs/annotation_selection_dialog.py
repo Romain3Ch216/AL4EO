@@ -22,6 +22,7 @@ class AnnotSelectDialog(QtWidgets.QDialog, FORM_CLASS):
         self.toolButton_selectLabel.clicked.connect(self.selectLabel)
         self.toolButton_selectHistory.clicked.connect(self.selectHistory)
 
+    #Select label layer from LayersDialog
     def selectLabel(self):
         sub_dlg = LayersDialog(1)
         sub_dlg.show()
@@ -37,6 +38,7 @@ class AnnotSelectDialog(QtWidgets.QDialog, FORM_CLASS):
                 if self.history_pth != None:
                     self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
 
+    #Select history path from QFileDialog
     def selectHistory(self):
         self.history_pth, check = QFileDialog.getOpenFileName(None, "", "Pickle Files (*.pkl)")
 

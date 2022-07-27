@@ -12,6 +12,7 @@ PORT = 65432  # Port to listen on (non-privileged ports are > 1023)
 HEADER = 64
 FORMAT = 'utf-8'
 
+#Class for socket connection send and recv
 class ServerQGI():
     def __init__(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -51,11 +52,14 @@ if __name__ == '__main__':
     try:
         while True:
 
+            #Wait connection from QGIS plugin
             server.waitConnection()
 
+            #recv data pickle
             data_pkl = server.recv()
 
             if data_pkl:
+                #load data pickle and get dataset config and parameters   
                 param = pickle.loads(data_pkl)
                 config = param['config']
                 dataset_param = param['dataset_param']
@@ -78,14 +82,17 @@ if __name__ == '__main__':
                         raise
                     pass
 
+                #perform active learning step
                 model, query, config = load_query(config, dataset)
                 AL = ActiveLearningFramework(dataset, model, query, config)
                 
                 AL.step()
                 path = AL.save() 
 
+                #convert history path from active learning step to pickle
                 path_pkl = pickle.dumps(path)
 
+                #send history path pickle
                 server.send(path_pkl) 
 
     except KeyboardInterrupt:

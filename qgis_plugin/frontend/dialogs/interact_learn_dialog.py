@@ -27,6 +27,7 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
         self.toolButton_selectData.clicked.connect(self.selectData)
         self.toolButton_selectLabel.clicked.connect(self.selectLabel)
 
+    #Select data layer from LayersDialog
     def selectData(self):
         sub_dlg = LayersDialog(2)
         sub_dlg.show()
@@ -57,6 +58,7 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
         self.label_data_name.setText('none')
         self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
 
+    #Select label layer from LayersDialog
     def selectLabel(self):
         sub_dlg = LayersDialog(1)
         sub_dlg.show()
@@ -79,6 +81,7 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
     def labelNameChanged(self):
         self.label_label_name.setText(self.layerLabel.name())
 
+    #return dataset config and params from dialog widgets
     def get_config(self):
         assert(self.layerData != None and self.layerLabel != None), "cannot get dataset"
 

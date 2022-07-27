@@ -44,6 +44,7 @@ class InteractLearn(core_plugin):
         # will be set False in run()
         self.first_start = True
 
+    #run Annotation dockWidget for annot pixels
     def runAnnotationDockWidget(self, history_path, annot_layer):
         # Create the dockwidget (after translation) and keep reference
         self.dockwidget = annotationDockWidget(self.iface)
@@ -55,6 +56,7 @@ class InteractLearn(core_plugin):
         self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
         self.dockwidget.show()
 
+    #Run annotationDialog to select history path and label layer
     def runAnnotationDialog(self):
         dlg = AnnotSelectDialog()
         dlg.show()
@@ -64,6 +66,7 @@ class InteractLearn(core_plugin):
 
             self.runAnnotationDockWidget(dlg.history_pth, dlg.layerLabel)
     
+    #run interactive learning dialog for selecting data layer, label layer and query config
     def runIlearnDialog(self):
         # Create the dialog with elements (after translation) and keep reference
         # Only create GUI ONCE in callback, so that it will only load when the plugin is started
@@ -78,17 +81,21 @@ class InteractLearn(core_plugin):
         # See if OK was pressed
         if result:
 
+            #get config and dataset parameters from dialog
             config, dataset_param = self.dlg.get_config()
             self.param = {'config' : config, 'dataset_param' : dataset_param}
 
+            #set data layer RGB bands from dialog values
             setLayerRGB(self.dlg.layerData, self.dlg.spinBox_R.value(), self.dlg.spinBox_G.value(), self.dlg.spinBox_B.value())
 
+            #change opacity of layer label 
             self.layerLabel = self.dlg.layerLabel
             classes = self.layerLabel.renderer().classes()
             classes[0].color.setAlpha(0)
             renderer = QgsPalettedRasterRenderer(self.layerLabel.dataProvider(), 1, classes)
             renderer.setOpacity(0.7)
 
+            #reproject label layer to data layer size
             formatAnnotationRaster(dataset_param['img_pth'], dataset_param['gt_pth']['train'][1])
             name = self.layerLabel.name()
             QgsProject.instance().removeMapLayer(self.layerLabel.id())
@@ -96,6 +103,7 @@ class InteractLearn(core_plugin):
             self.layerLabel.setRenderer(renderer) 
             self.layerLabel.triggerRepaint()
             
+            #communicate query config and params to serveur in QgsTask thread
             task = QgsTask.fromFunction(
                 "Ilearn Query",
                 self.send_and_recv_Serveur,
@@ -106,6 +114,7 @@ class InteractLearn(core_plugin):
                 task
             )
 
+    #run when QgsTask is complete, run annotationDockWidget if query has reached the end
     def _completed(self, exception, result=None):
         if exception is None:
             if result != None:
@@ -115,6 +124,7 @@ class InteractLearn(core_plugin):
         else:
             self.iface.messageBar().pushMessage(str(exception), level=Qgis.Warning)
 
+    #QgsTask for sending config and param to serveur and receive history path   
     def send_and_recv_Serveur(self, task):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:

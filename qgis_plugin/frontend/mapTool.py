@@ -4,6 +4,7 @@ from qgis.core import QgsRasterBlock
 class MapTool(QgsMapToolEmitPoint):
     def __init__(self, mapCanvas, layer, classeSelected):
         QgsMapToolEmitPoint.__init__(self, mapCanvas)
+        #Get all layer info for annotate pixels
         self.layer = layer
         self.provider = self.layer.dataProvider()
         self.block = QgsRasterBlock(self.provider.dataType(1), 1, 1)
@@ -26,10 +27,11 @@ class MapTool(QgsMapToolEmitPoint):
         column = int(((point.x() - self.xmin) / self.xsize))
 
         if row <= 0 or column <=0 or row > self.height or column > self.width:
+            #if pixel not in layer
             row = "out of extent"
             column = "out of extent"
         else:
-            
+            #if pixel in layer, change pixel value
             self.block.setData(self.classeSelected.to_bytes(2, 'little'), 0)
 
             self.provider.setEditable(True)

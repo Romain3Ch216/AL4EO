@@ -71,12 +71,15 @@ def setLayerRGB(layer, R, G, B):
     layer.triggerRepaint()
 
 def formatAnnotationRaster(img_pth, gt_pth):
+    #reproject gt_pth to img pth shape
     with rio.open(img_pth) as src:
+        #get data image transform crs shape metadata
         dst_transform = src.transform
         dst_crs = src.crs
         dst_shape = src.height, src.width
     
     with rio.open(gt_pth) as src:
+        #update metadata of label image with image metadata
         kwargs = src.profile.copy()
         kwargs.update({
             'crs': dst_crs,
@@ -84,9 +87,11 @@ def formatAnnotationRaster(img_pth, gt_pth):
             'width': dst_shape[1],
             'height': dst_shape[0]
         })
+        #get label header tags 
         dst_tags = src.tags(ns=src.driver)
 
         with rio.open(gt_pth, 'w', **kwargs) as dst:
+            #reproject label image and write it 
             reproject(
                 source=rio.band(src, 1),
                 destination=rio.band(dst, 1),
@@ -95,12 +100,14 @@ def formatAnnotationRaster(img_pth, gt_pth):
                 dst_transform=dst_transform,
                 dst_crs=dst_crs,
                 resampling=Resampling.nearest)
+            #write classes info header tags
             dst.update_tags(ns=dst.driver, classes=dst_tags['classes'])
             dst.update_tags(ns=dst.driver, class_lookup=dst_tags['class_lookup'])
             dst.update_tags(ns=dst.driver, class_name=dst_tags['class_names'])
     correctTagNameIssue(gt_pth)
 
 def getClasseNameColor(gt_path):
+    #get classes names and colors from header file
     with rio.open(gt_path) as src:
         src_tags = src.tags(ns=src.driver)
         class_names = src_tags['class_names'].replace(' ', '').replace('{', '').replace('}', '').split(',')
@@ -111,6 +118,7 @@ def getClasseNameColor(gt_path):
     return class_names, class_color
 
 def updateClassNameColor(class_names, class_color, gt_pth):
+    #update header file classes names and colors 
     class_names_string = '{'
     for i in range(len(class_names)-1):
         class_names_string += class_names[i] + ', '
@@ -127,6 +135,8 @@ def updateClassNameColor(class_names, class_color, gt_pth):
     correctTagNameIssue(gt_pth)
 
 def correctTagNameIssue(gt_pth):
+    """Change the tag 'class name' to 'class names' 
+    because rasterio write 'class name', but QGIS reconize only 'class names' tag"""
     gt_hdr_pth = gt_pth[:-4] + "hdr"
     file_content = ""
     with open(gt_hdr_pth, "r") as f:
@@ -136,6 +146,7 @@ def correctTagNameIssue(gt_pth):
         f.write(file_content)
 
 def createHistoryLayer(name, coordinates, gt_pth):
+    #Create a Vector layer with points which are at the coordinates in the history
     with rio.open(gt_pth, 'r') as src:
         transform = src.transform
         crs = QgsCoordinateReferenceSystem()
