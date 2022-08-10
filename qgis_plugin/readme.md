@@ -16,7 +16,7 @@ The plug-in also use rasterio python package version 1.3b2.
 You can download rasterio version 1.3b2 with the command:  
 ```pip install rasterio==1.3b2```
 
-This project was developed on linux so it is preferable to use this plugin on a linux system.
+This project was developed on the linux system Ubuntu 22.04 LTS so it is preferable to use this plugin on a linux system.
 
 ## Lunch an active learning step
 You must launch the python script "server.py" which is in the AL4EO folder.
