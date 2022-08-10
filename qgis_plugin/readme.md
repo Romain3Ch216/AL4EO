@@ -9,7 +9,14 @@ segmentation of geo-referenced images using deep-learning.
 Compress this repository (`qgis_plugin`) into a zip file and install the plugin with the Qgis plugin manager.
 
 # Use plug-in
-Make sure to be in a python environment with the requirements installed for AL4EO.
+The plug-in use the PyQGIS python package version 3.22.4.
+
+The plug-in also use rasterio python package version 1.3b2.
+
+You can download rasterio version 1.3b2 with the command:  
+```pip install rasterio==1.3b2```
+
+This project was developed on linux so it is preferable to use this plugin on a linux system.
 
 ## Lunch an active learning step
 You must launch the python script "server.py" which is in the AL4EO folder.
