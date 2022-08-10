@@ -9,7 +9,7 @@ segmentation of geo-referenced images using deep-learning.
 Compress this repository (`qgis_plugin`) into a zip file and install the plugin with the Qgis plugin manager.
 
 # Use plug-in
-The plug-in use the PyQGIS python package version 3.22.4.
+The plug-in use QGIS version 3.22.4.
 
 The plug-in also use rasterio python package version 1.3b2.
 
