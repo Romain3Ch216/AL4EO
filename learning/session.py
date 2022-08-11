@@ -79,7 +79,7 @@ class ActiveLearningFramework:
 
     def oracle(self):
         coordinates = tuple((self.coordinates[:,0], self.coordinates[:,1]))
-        labels = self.dataset.pool.gt[coordinates]
+        labels = self.dataset.pool.data[coordinates]
         self.dataset.train_gt.add(coordinates, labels)
         added_labels = self.dataset.GT['labeled_pool'][coordinates]
         self.history['labels'].extend(added_labels)

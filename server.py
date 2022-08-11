@@ -70,10 +70,9 @@ if __name__ == '__main__':
                 config['classes'] = np.unique(dataset.train_gt())[1:]
                 config['n_bands']   = dataset.n_bands
                 config['ignored_labels'] = dataset.ignored_labels
-                config['img_shape'] = dataset.img_shape
-                config['res_dir'] = '{}/Results/ActiveLearning/'.format(get_path()) + config['dataset'] + '/' + 'gt1' + '/' + config['query']
+                config['img_shape'] = dataset.img_shape 
+                config['res_dir'] = '{}/Results/ActiveLearning/'.format(get_path()) + config['dataset'] + '/' + config['query']
 
-                config['superpixels'] = None
 
                 try:
                     os.makedirs(config['res_dir'], exist_ok=True)

@@ -173,6 +173,15 @@ class Dataset:
     @property
     def n_train(self):
         return self.train_gt.size
+
+    @property
+    def proportions(self):
+        prop = np.zeros(self.n_classes-1)
+        n = np.sum(self.train_gt.data != 0)
+        for class_id in np.unique(self.train_gt.data):
+            if class_id != 0:
+                prop[class_id-1] = round(np.sum(self.train_gt.data == class_id) / n *100, 1)
+        return prop
         
 
 class SubsetSampler(data.Sampler):

@@ -87,7 +87,7 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
 
         dataset_param = {}
         dataset_param['img_pth'] = self.layerData.dataProvider().dataSourceUri()
-        dataset_param['gt_pth'] = {'train' : {1 : self.layerLabel.dataProvider().dataSourceUri()}}
+        dataset_param['gt_pth'] = self.layerLabel.dataProvider().dataSourceUri()
 
         class_names, class_color = getClasseNameColor(self.layerLabel.dataProvider().dataSourceUri())
 
