@@ -1620,7 +1620,6 @@ def load_query(config, dataset):
     weights[torch.LongTensor(config['ignored_labels'])] = 0.
     weights = weights.to(config['device'])
     weights = config.setdefault('weights', weights)
-    run = int(config['run'][-1])
 
     if config['query'] == 'vaal':
         config.setdefault('num_adv_steps', 1)

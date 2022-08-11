@@ -75,10 +75,7 @@ class NeuralNetwork(Classifier):
         self.net.apply(self.net.weight_init)
 
     def train(self, dataset, hyperparams):
-        if dataset.type == 'npy':
-            train_data_loader, val_data_loader = dataset.load_data(dataset.img, dataset.train_gt())
-        else:
-            train_data_loader, val_data_loader = dataset.load_Hdrdata(dataset.train_gt())
+        train_data_loader, val_data_loader = dataset.load_data(dataset.train_gt())
 
         try:
             for epoch in range(1, hyperparams['epochs']+1):

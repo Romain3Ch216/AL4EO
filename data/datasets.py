@@ -2,6 +2,14 @@ from data.data import Dataset
 from path import get_path
 
 DATASETS_CONFIG = {
+    'Demo': {
+        'label_values': ['Unclassified', 'Healthy vegetation', 'Stressed vegetation'],
+        'sensor': 'FENIX',
+        'ignored_labels': [],
+        'palette': None,
+        'img_pth': '{}/data/saouzelong/demo.tiff'.format(get_path()),
+        'gt_pth': '{}/data/saouzelong/demo_gt.tiff'.format(get_path())
+    },
     'HoustonHdr': { #clément
         'label_values': ['unclassified', 'healthy_grass', 'stressed_grassed',
                          'artificial_turf', 'evergreen_trees', 'deciduous_trees',
