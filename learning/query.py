@@ -48,8 +48,8 @@ class Query:
         return loader
 
     def compute_probs(self, model, data_loader):
-        probs =  model.predict_probs(data_loader, self.hyperparams)
-        return probs
+        probs, coords =  model.predict_probs(data_loader, self.hyperparams)
+        return probs, coords
 
     def compute_score(self):
         raise NotImplementedError
@@ -62,12 +62,13 @@ class Query:
         return ranks.astype(int)
 
     def __call__(self, model, pool, train_data=None):
-        self.score = self.compute_score(model, pool)
+        self.score, self.coords = self.compute_score(model, pool)
         if isinstance(self.score, type(torch.zeros(1))):
             self.score = self.score.cpu().numpy()
         ranks = self.get_rank(self.score)
-        ranks = ranks[:self.n_px]
-        return ranks
+        selected = self.coords[ranks]
+        selected = selected[:self.n_px]
+        return selected
 
 
 class RandomSampling(Query):
@@ -96,10 +97,10 @@ class BreakingTie(Query):
         super().__init__(n_px, hyperparams, shuffle_prop, reverse=False)
 
     def compute_score(self, model, data_loader):
-        probs = self.compute_probs(model, data_loader)
+        probs, coords = self.compute_probs(model, data_loader)
         sorted_probs = np.sort(probs, axis=-1)
         breaking_ties = sorted_probs[:,-1] - sorted_probs[:,-2]
-        return breaking_ties
+        return breaking_ties, coords
 
 
 class MaxEntropy(Query):

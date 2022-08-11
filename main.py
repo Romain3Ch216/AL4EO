@@ -24,6 +24,7 @@ parser.add_argument('--n_px', type=int, default=10, help='Number of unlabled pix
 parser.add_argument('--steps', type=int, help="Number of AL steps")
 parser.add_argument('--device', type=str, default='cpu', help="Specify cpu or gpu")
 parser.add_argument('--timestamp', type=str, help="timestamp")
+parser.add_argument('--op', action='store_true', help='Only perform one step without the automatic oracle if True')
 
 # Query options
 query_options = parser.add_argument_group('Query')
@@ -71,34 +72,6 @@ except OSError as exc:
     pass
 
 model, query, config = load_query(config, dataset)
-
-dataset.hyperparams['batch_size'] = 1
-
-import pdb  
-
-loader = dataset.load_data(dataset.train_gt, split=False, shuffle=False)
-img = np.zeros((dataset.img_shape[0]*dataset.img_shape[1], dataset.n_bands))
-
-for i, (data, label) in enumerate(loader):
-    img[i,:] = data[0,:]
-
-img = img.reshape(dataset.img_shape[0], dataset.img_shape[1], -1)
-
-import matplotlib.pyplot as plt 
-import spectral.io.envi as envi 
-
-I = envi.open(dataset.img_pth[:-4]+'hdr', dataset.img_pth)
-I = I[:,:,50]
-
-fig, ax = plt.subplots(2, 1)
-ax[0].imshow(I)
-ax[1].imshow(img[:,:,50])
-plt.show()
-
-
-pdb.set_trace()
-
-
 AL = ActiveLearningFramework(dataset, model, query, config)
 
 if args.op:

@@ -75,7 +75,7 @@ class NeuralNetwork(Classifier):
         self.net.apply(self.net.weight_init)
 
     def train(self, dataset, hyperparams):
-        train_data_loader, val_data_loader = dataset.load_data(dataset.train_gt())
+        train_data_loader, val_data_loader = dataset.load_data(dataset.train_gt)
 
         try:
             for epoch in range(1, hyperparams['epochs']+1):
@@ -89,7 +89,7 @@ class NeuralNetwork(Classifier):
                 grad_meter     = dict((depth, tnt.meter.AverageValueMeter()) for depth, _ in enumerate(self.net.parameters()))
                 y_true, y_pred = [], []
 
-                for batch_id, (spectra, y) in tqdm(enumerate(train_data_loader), total=len(train_data_loader)):
+                for batch_id, (spectra, y, _) in tqdm(enumerate(train_data_loader), total=len(train_data_loader)):
 
                     y_true.extend(list(map(int, y)))
                     spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
@@ -126,7 +126,7 @@ class NeuralNetwork(Classifier):
 
                 self.net.eval()
 
-                for (spectra, y) in val_data_loader:
+                for (spectra, y, _) in val_data_loader:
                     y_true.extend(list(map(int, y)))
                     spectra, y = spectra.to(hyperparams['device']), y.to(hyperparams['device'])
 
@@ -159,13 +159,18 @@ class NeuralNetwork(Classifier):
         self.net.load_state_dict(self.best_state)
         self.net.eval()
         probs = []
-        for batch_id, (data, _) in tqdm(enumerate(data_loader), total=len(data_loader)):
+        coords_x = []
+        coords_y = []
+        for batch_id, (data, _, coord) in tqdm(enumerate(data_loader), total=len(data_loader)):
             data = data.to(hyperparams['device'])
             with torch.no_grad():
                 probs.append(self.net(data).cpu())
+            coords_x.extend(coord[0].numpy())
+            coords_y.extend(coord[1].numpy())
         probs = torch.cat(probs)
         probs = self.softmax(probs)
-        return probs
+        coords = np.array(tuple((coords_x, coords_y))).T
+        return probs, coords
 
     def map(self, dataset, hyperparams):
         self.net.to(hyperparams['device'])

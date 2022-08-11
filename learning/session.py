@@ -54,43 +54,26 @@ class ActiveLearningFramework:
         start_query_time = time.time()
         #train_data = self.dataset.train_data
         train_data = None
-        pool = self.dataset.load_data(self.dataset.pool(), shuffle=False, split=False)
 
+        pool = self.dataset.load_data(self.dataset.pool, shuffle=False, split=False)
 
-        if self.config['superpixels']:
-            self.dataset.pool_segmentation_(pool[0], pool[1], self.queried_clusters)
-            pool, cluster_ids, clusters = self.dataset.spectra, self.dataset.cluster_ids, self.dataset.clusters
-            pool = pool, np.arange(pool.shape[0])
-            ranks = self.query(self.model, pool, train_data)
-            self.queried_clusters = ranks
-            indices = []
-            for rank in ranks :
-                cluster_id = cluster_ids[rank]
-                inds = np.where(cluster_id == clusters)
-                random_ind = np.random.randint(low=0, high=len(inds[0]), size=int(self.config['n_random']))
-                indices.extend(inds[0][random_ind])
+        self.coordinates = self.query(self.model, pool, train_data) # This is the coordinates of the selected pixels
+        score = self.query.score
+        coords = self.query.coords # This the coordinates of the pool
 
-            indices = np.array(indices).astype(int)
-            self.coordinates = self.dataset.pool.coordinates.T[indices]
-
-            if self.query.score is not None:
-                corr = dict((i, self.query.score[i]) for i in range(len(self.query.score)))
-                score = np.vectorize(corr.get)(clusters)
-                score_map = np.zeros_like(self.dataset.train_gt.gt).astype(float)
-                coord = tuple((self.dataset.pool.coordinates[0], self.dataset.pool.coordinates[1]))
-                score_map[coord] = score
-
-        else:
-            ranks = self.query(self.model, pool, train_data)
-            self.coordinates = self.dataset.pool.coordinates.T[ranks]
-            score = self.query.score
-
-
+        # # To show the score
+        # import matplotlib.pyplot as plt 
+        # map_ = np.zeros(self.dataset.img_shape)
+        # coord = tuple((coords[:,0], coords[:,1]))
+        # map_[coord] = score
+        # fig = plt.figure()
+        # plt.imshow(map_)
+        # plt.show()
 
         query_time = time.time() - start_query_time
         f.writelines(['{} {} {} {}\n'.format(self.step_, training_time, query_time, self.dataset.pool.size)])
         f.close()
-
+ 
         self.history['coordinates'].extend(list(self.coordinates))
         self.step_ += 1
 

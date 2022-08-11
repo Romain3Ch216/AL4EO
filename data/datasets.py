@@ -5,7 +5,7 @@ DATASETS_CONFIG = {
     'Demo': {
         'label_values': ['Unclassified', 'Healthy vegetation', 'Stressed vegetation'],
         'sensor': 'FENIX',
-        'ignored_labels': [],
+        'ignored_labels': [0],
         'palette': None,
         'img_pth': '{}/data/saouzelong/demo.tiff'.format(get_path()),
         'gt_pth': '{}/data/saouzelong/demo_gt.tiff'.format(get_path())

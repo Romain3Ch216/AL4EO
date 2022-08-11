@@ -113,7 +113,7 @@ class Dataset:
                     resampling=Resampling.nearest)
             self.train_gt = TrainGt(gt)
 
-        mask = self.train_gt == 0 
+        mask = self.train_gt.data == 0 
         self.pool = Pool(mask)
             
 
@@ -201,12 +201,14 @@ class GeoHyperX(torch.utils.data.Dataset):
         """
         super(GeoHyperX, self).__init__()
 
-        self.label = gt.data
+        self.label = np.copy(gt.data)
         self.patch_size = hyperparams["patch_size"]
         self.ignored_labels = set(hyperparams["ignored_labels"])
         self.data_min = data_min
         self.data_max = data_max
         self.shuffle = shuffle
+
+        self.coordinates = np.array(np.where(self.label == self.label)).T
 
         #open image data file
         self.data_src = rio.open(data_pth)
@@ -217,7 +219,7 @@ class GeoHyperX(torch.utils.data.Dataset):
         self.bbl_index = tuple(np.where(bbl != 0)[0] + 1)
 
         #create list of slices of the image based on block_hw
-        block_hw = 4, 1
+        block_hw = 4, 4
         bh = gt.data.shape[0] // block_hw[0]
         bw = gt.data.shape[1] // block_hw[1]
         self.blocks_slices = []
@@ -299,6 +301,7 @@ class GeoHyperX(torch.utils.data.Dataset):
 
         #get pixel coord based on i 
         x, y = self.indices[self.block_index][i-self.len_last]
+        coord = [x,y]
         x1, y1 = x - self.patch_size // 2, y - self.patch_size // 2
         x2, y2 = x1 + self.patch_size, y1 + self.patch_size
 
@@ -334,5 +337,5 @@ class GeoHyperX(torch.utils.data.Dataset):
             # Make 4D data ((Batch x) Planes x Channels x Width x Height)
             data = data.unsqueeze(0)
 
-        return data, label
+        return data, label, coord
 
