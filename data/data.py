@@ -13,24 +13,24 @@ class Subset:
         Args:
             gt: 2D array of labels
         """
-        self.gt = gt
+        self.data = gt
 
     @property
     def size(self):
-        return np.sum(self.gt!=0)
+        return np.sum(self.data!=0)
 
     @property
     def coordinates(self):
-        coordinates_ = np.where(self.gt)
+        coordinates_ = np.where(self.data)
         return np.array(coordinates_)
 
     @property
     def labels(self):
-        mask = self.gt != 0
-        return self.gt[mask]
+        mask = self.data != 0
+        return self.data[mask]
 
     def __call__(self):
-        return self.gt
+        return self.data
 
 class Pool(Subset):
     """Class for an unlabeled pool"""
@@ -38,7 +38,7 @@ class Pool(Subset):
         super().__init__(gt)
 
     def remove(self, coordinates):
-        self.gt[coordinates] = 0
+        self.data[coordinates] = 0
 
 
 class TrainGt(Subset):
@@ -47,7 +47,7 @@ class TrainGt(Subset):
         super().__init__(gt)
 
     def add(self, coordinates, labels):
-        self.gt[coordinates] = labels
+        self.data[coordinates] = labels
 
 
 class Dataset:
@@ -66,6 +66,8 @@ class Dataset:
         """
 
         #Metadata
+        self.img_pth = img_pth 
+        self.gt_pth = gt_pth
         self.ignored_labels = ignored_labels
         self.label_values   = label_values
         self.n_classes      = len(label_values)
@@ -166,7 +168,7 @@ class Dataset:
 
     @property
     def labeled_(self):
-        return (self.train_gt.gt + self.pool.gt).flatten()
+        return (self.train_gt.data + self.pool.data).flatten()
 
     @property
     def n_train(self):
@@ -183,6 +185,7 @@ class SubsetSampler(data.Sampler):
     def __len__(self):
         return len(self.indices)    
 
+
 class GeoHyperX(torch.utils.data.Dataset):
     """ Generic class for a georeferenced hyperspectral dataset"""
 
@@ -198,7 +201,7 @@ class GeoHyperX(torch.utils.data.Dataset):
         """
         super(GeoHyperX, self).__init__()
 
-        self.label = gt.gt
+        self.label = gt.data
         self.patch_size = hyperparams["patch_size"]
         self.ignored_labels = set(hyperparams["ignored_labels"])
         self.data_min = data_min
@@ -214,20 +217,20 @@ class GeoHyperX(torch.utils.data.Dataset):
         self.bbl_index = tuple(np.where(bbl != 0)[0] + 1)
 
         #create list of slices of the image based on block_hw
-        block_hw = 4, 4
-        bh = gt.gt.shape[0] // block_hw[0]
-        bw = gt.gt.shape[1] // block_hw[1]
+        block_hw = 4, 1
+        bh = gt.data.shape[0] // block_hw[0]
+        bw = gt.data.shape[1] // block_hw[1]
         self.blocks_slices = []
         for i in range(block_hw[0]):
             for j in range(block_hw[1]):
-                slice_x = (i*bh, gt.gt.shape[0]) if i == block_hw[0]-1 else (i*bh, (i+1)*bh)
-                slice_y = (j*bw, gt.gt.shape[1]) if j == block_hw[1]-1 else (j*bw, (j+1)*bw)
+                slice_x = (i*bh, gt.data.shape[0]) if i == block_hw[0]-1 else (i*bh, (i+1)*bh)
+                slice_y = (j*bw, gt.data.shape[1]) if j == block_hw[1]-1 else (j*bw, (j+1)*bw)
                 self.blocks_slices.append((slice_x, slice_y))
 
         #remove ignored labels from gt
-        mask = np.ones_like(gt.gt)
+        mask = np.ones_like(gt.data)
         for l in self.ignored_labels:
-            mask[gt.gt == l] = 0
+            mask[gt.data == l] = 0
 
         #get all non zero pixel indice (row and col)
         x_pos, y_pos = np.nonzero(mask)

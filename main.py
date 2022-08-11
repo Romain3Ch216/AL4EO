@@ -73,14 +73,29 @@ except OSError as exc:
 model, query, config = load_query(config, dataset)
 
 dataset.hyperparams['batch_size'] = 1
-loader = dataset.load_data(dataset.train_gt, split=False, shuffle=False)
 
+import pdb  
+
+loader = dataset.load_data(dataset.train_gt, split=False, shuffle=False)
 img = np.zeros((dataset.img_shape[0]*dataset.img_shape[1], dataset.n_bands))
 
 for i, (data, label) in enumerate(loader):
     img[i,:] = data[0,:]
 
-import pdb  
+img = img.reshape(dataset.img_shape[0], dataset.img_shape[1], -1)
+
+import matplotlib.pyplot as plt 
+import spectral.io.envi as envi 
+
+I = envi.open(dataset.img_pth[:-4]+'hdr', dataset.img_pth)
+I = I[:,:,50]
+
+fig, ax = plt.subplots(2, 1)
+ax[0].imshow(I)
+ax[1].imshow(img[:,:,50])
+plt.show()
+
+
 pdb.set_trace()
 
 
