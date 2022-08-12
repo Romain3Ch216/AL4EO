@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 from sklearn.decomposition import PCA
-from data.data import HyperX
 import torch.utils.data as data
 import spectral
 import itertools
