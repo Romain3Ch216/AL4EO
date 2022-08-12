@@ -33,6 +33,7 @@ class MapTool(QgsMapToolEmitPoint):
         else:
             #if pixel in layer, change pixel value
             self.block.setData(self.classeSelected.to_bytes(2, 'little'), 0)
+            print(self.classeSelected.to_bytes(2, 'little'))
 
             self.provider.setEditable(True)
             self.provider.writeBlock(self.block, 1, column, row)
