@@ -71,8 +71,6 @@ if __name__ == '__main__':
                 config['n_bands']   = dataset.n_bands
                 config['ignored_labels'] = dataset.ignored_labels
                 config['img_shape'] = dataset.img_shape 
-                config['res_dir'] = '{}/Results/ActiveLearning/'.format(get_path()) + config['dataset'] + '/' + config['query']
-
 
                 try:
                     os.makedirs(config['res_dir'], exist_ok=True)

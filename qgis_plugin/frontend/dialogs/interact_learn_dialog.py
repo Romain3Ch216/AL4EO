@@ -108,8 +108,6 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
         config['weight_decay'] = self.doubleSpinBox_weight_decay.value()
         config['device'] = 'cpu' if self.comboBox_device.currentText() == 'CPU' else 'cuda'
 
-        config['dataset'] = "Houston"
-        config['run'] = [1]
-        config['remove'] = []
+        config['res_dir'] = ('/').join(dataset_param['img_pth'].split('/')[:-1]) + '/'
 
         return config, dataset_param        
