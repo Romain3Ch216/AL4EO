@@ -370,7 +370,7 @@ class BALD(Query):
 
         self.device = hyperparams['device']
 
-    def compute_score(self, model, pool):
+    def compute_score(self, model, data_loader):
         """
         Args:
             probs (ndarray): Array of predictions
@@ -378,10 +378,9 @@ class BALD(Query):
         Returns:
             Array of scores.
         """
-        data_loader = self.pool_loader(pool)
-        probs = self.compute_probs(model, data_loader)
+        probs, coords = self.compute_probs(model, data_loader)
         bald_acq = self.compute_score_from_probs(probs)
-        return bald_acq
+        return bald_acq, coords
 
     def compute_score_from_probs(self, probs):
         """
@@ -529,7 +528,7 @@ class BatchBALD(BALD):
 
 
 
-    def compute_score(self, model, pool):
+    def compute_score(self, model, data_loader):
         """
         Compute the score according to the heuristic.
 
@@ -542,7 +541,6 @@ class BatchBALD(BALD):
         Returns:
             Array of scores.
         """
-        data_loader = self.pool_loader(pool)
         probs = self.compute_probs(model, data_loader)
         if torch.cuda.is_available():
             print("Running on cuda...")

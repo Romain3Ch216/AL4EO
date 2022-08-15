@@ -1238,19 +1238,28 @@ class BayesianModelWrapper:
         """
         optimizer = hyperparams['optimizer']
         batch_size = hyperparams['batch_size']
-        epoch = hyperparams['epochs']
+        n_epochs = hyperparams['epochs']
         use_cuda = True if hyperparams['device'] == 'cuda' else False
         num_workers = 4
+        self.best_loss = np.inf
         collate_fn = None
         self.model.train()
         history = []
-        data_loader = dataset.load_data(dataset.img, dataset.train_gt(), split=False)
+        train_data_loader, val_data_loader = dataset.load_data(dataset.train_gt)
         collate_fn = collate_fn or default_collate
-        for _ in range(epoch):
-            for data, target in data_loader:
+        for epoch in range(n_epochs):
+            for data, target, _ in train_data_loader:
                 _ = self.train_on_batch(data, target, optimizer, hyperparams)
 
-        optimizer.zero_grad()  # Assert that the gradient is flushed.
+            for data, target, _ in val_data_loader:
+                val_loss = self.train_on_batch(data, target, optimizer, hyperparams)
+
+            if val_loss < self.best_loss:
+                    self.best_loss = val_loss 
+                    self.best_epoch = epoch
+                    self.best_state = self.model.parent_module.state_dict()
+
+            optimizer.zero_grad()  # Assert that the gradient is flushed.
         return history
 
     def predict_on_data_loader(self, data_loader, hyperparams):
@@ -1276,20 +1285,25 @@ class BayesianModelWrapper:
         use_cuda = True if hyperparams['device'] == 'cuda' else None
         iterations = hyperparams['num_samples']
 
-        for idx, (data, _) in enumerate(tqdm(data_loader, total=len(data_loader), file=sys.stdout)):
+        for idx, (data, _, coords) in enumerate(tqdm(data_loader, total=len(data_loader), file=sys.stdout)):
 
             pred = self.predict_on_batch(data, hyperparams)
             pred = map_on_tensor(lambda x: x.detach(), pred)
-            yield map_on_tensor(lambda x: x.cpu().numpy(), pred)
+            yield tuple((map_on_tensor(lambda x: x.cpu().numpy(), pred), coords[0], coords[1]))
 
     def predict_probs(self, data_loader, hyperparams):
-        preds = list(self.predict_on_data_loader(data_loader, hyperparams))
+        preds, coords_x, coords_y = [], [], []
+        for x in list(self.predict_on_data_loader(data_loader, hyperparams)):
+            preds.append(x[0])
+            coords_x.extend(x[1])
+            coords_y.extend(x[2])
 
         if len(preds) > 0 and not isinstance(preds[0], Sequence):
             # Is an Array or a Tensor
             probs = torch.from_numpy(np.vstack(preds))
             probs = self.softmax(probs)
-            return probs
+            coords = np.array(tuple((coords_x, coords_y))).T
+            return probs, coords
         return [np.vstack(pr) for pr in zip(*preds)]
 
     def train_on_batch(self, data, target, optimizer, hyperparams):
