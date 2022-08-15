@@ -26,6 +26,8 @@ We suggest to install QGIS on a [conda virtual environment](https://docs.python.
 
 To install the plug-in, compress the ```qgis_plugin``` folder into a zip file and use the QGIS plug-in manager. 
 
+To plot pixels spectra, we strongly recommend to install this [QGIS Temporal/Spectral Profile Tool](plug-in https://plugins.qgis.org/plugins/temporalprofiletool/).
+
 ### Python dependencies 
 
 AL4EO is compatible with Python 3.6+ and PyTorch 1.10.0+.
