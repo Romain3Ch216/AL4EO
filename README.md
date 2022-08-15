@@ -1,7 +1,7 @@
 
-<img src="https://github.com/Romain3Ch216/AL4EO/tree/qgis-plugin/imgs/logo_onera.png" alt="drawing" width="200" align="left"/>
+<img src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/logo_onera.png" alt="drawing" width="200" align="left"/>
 
-<img src="https://github.com/Romain3Ch216/AL4EO/tree/qgis-plugin/imgs/logo_magellium.png" alt="drawing" width="200"  align="right"/>
+<img src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/logo_magellium.png" alt="drawing" width="120"  align="right"/>
 
 <br />
 
