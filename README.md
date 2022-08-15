@@ -26,9 +26,9 @@ To install the plug-in, compress the ```qgis_plugin``` folder into a zip file an
 
 ### Python dependencies 
 
-AL4EO is compatible with Python 3.6+.
+AL4EO is compatible with Python 3.6+ and PyTorch 1.10.0+.
 
-The easiest way to install the backend code is to create another [conda virtual environment](https://docs.python.org/3/tutorial/venv.html) and to install dependencies using:
+The easiest way to install the backend code is to create a AL4EO [conda virtual environment](https://docs.python.org/3/tutorial/venv.html) and to install dependencies using:
 `pip install -r requirements.txt`
 
 (on Windows you should use `pip install -r requirements.txt -f https://download.pytorch.org/whl/torch_stable.html`)
@@ -37,9 +37,24 @@ The easiest way to install the backend code is to create another [conda virtual 
 
 ### Active Learning Framework
 
-<img src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/al_algo.png" alt="active_learning_flowchart" width="200" />
+The two major building blocks of the Active Learning Framework are: 
+ * the **acquisition function**, that tells how informative the unlabeled pixels are,
+ * the **oracle**, that labels the queried pixels (the pixels that maximise the acquisition function).
 
+Active Learning techniques iteratively query pixels as follows:
 
+<img src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/al_algo.png" alt="active_learning_flowchart" width="700" />
+
+At this time, the qgis plug-in handles two acquisition functions:
+ * <a href="https://www.jmlr.org/papers/volume6/luo05a/luo05a.pdf">Breaking Tie<a/>, an inter-class uncertainty heuristic,
+ * <a href="https://arxiv.org/abs/1112.5745">BALD<a/>, an epistemic uncertainty heuristic.
+
+See more acquisition functions in AL4EO/benchmark.
+
+### Models
+  
+Acquisition functions are often based on machine learning classifiers that are defined in `AL4EO/learning/models.py`. 
+  
 ### Data 
 
 AL4EO plug-in handles data in the [ENVI](https://www.l3harrisgeospatial.com/docs/enviimagefiles.html#:~:text=The%20ENVI%20image%20format%20is,an%20accompanying%20ASCII%20header%20file.) format. Your data folder should be organized as follows:
@@ -63,6 +78,17 @@ class lookup = {255 0 0 0 255 0}
 class names = {Vegetation Buildings}
 ```
 
+## How to start
+  
+Launch the backend in your AL4EO conda virtual environment with the following command line:
+  `python -m server` 
+  
+In QGIS, 
+  * Click on the `Q` button to start a query,
+  * Select your acquisition function and the various hyperparameters,
+  * When the query is completed (see progress in the terminal), queried pixels are showed by red points,
+  * In the annotation window, select or add a class, enable the annotation by clicking on the cell below and label the pixels with the mouse left click,
+  * Start over.
 
 ## Reference
 
