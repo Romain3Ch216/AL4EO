@@ -1,13 +1,18 @@
-
-<img src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/logo_onera.png" alt="drawing" width="160" align="left"/>
-
-<img src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/logo_magellium.png" alt="drawing" width="120"  align="right"/>
+<div align="center">
+  <img src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/logo_onera.png" alt="drawing" width="200"/>
+  <img src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/logo_magellium.png" alt="drawing" width="150" />
+</div>
 
 <br />
 
+<p align="center">
+  <img alt="GitHub" src="https://img.shields.io/github/license/Romain3Ch216/AL4EO?color=brightgreen">
+  <img alt="Github" src="https://img.shields.io/badge/version-beta-9cf">
+</p>
+
 # AL4EO
 
-AL4EO is an Active Learning Toolbox for Earth Observation. QGIS plug-in to come soon!
+AL4EO/qgis-plugin is a <a href="https://www.qgis.org/fr/site/"> QGIS </a> plug-in to run Active Learning techniques on remote sensing data.  
 
 ## Reference
 
