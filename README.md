@@ -37,7 +37,8 @@ The easiest way to install the backend code is to create another [conda virtual 
 
 ### Active Learning Framework
 
-<img src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/al_algo.pdf" alt="drawing" width="200"/>
+<img src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/al_algo.png" alt="active_learning_flowchart" width="200" />
+
 
 ### Data 
 
