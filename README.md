@@ -35,6 +35,10 @@ The easiest way to install the backend code is to create another [conda virtual 
 
 ## Usage 
 
+### Active Learning Framework
+
+<img src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/al_algo.pdf" alt="drawing" width="200"/>
+
 ### Data 
 
 AL4EO plug-in handles data in the [ENVI](https://www.l3harrisgeospatial.com/docs/enviimagefiles.html#:~:text=The%20ENVI%20image%20format%20is,an%20accompanying%20ASCII%20header%20file.) format. Your data folder should be organized as follows:
