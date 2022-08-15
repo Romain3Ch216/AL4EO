@@ -1,4 +1,5 @@
 """
+Copyright (c) 2022 ONERA, Magellium and IMT, Romain Thoreau, Véronique Achard, Laurent Risser, Béatrice Berthelot, Xavier Briottet.
 Script that performs active learning over a benchmark dataset
 """
 
