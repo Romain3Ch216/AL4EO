@@ -16,7 +16,7 @@ AL4EO/qgis-plugin is a <a href="https://www.qgis.org/fr/site/"> QGIS </a> plug-i
 The goal of Active Learning is to interactively build optimal training data sets for supervised learning.
 For further details on Active Learning for Earth observation, you can read our comparative review <a href="https://ieeexplore.ieee.org/document/9774342">here</a>.
 
-To run benchmark experiments, see the branch `benchmark` of this repository.
+To run benchmark experiments, see the [benchmark](https://github.com/Romain3Ch216/AL4EO/tree/benchmark) branch of this repository. 
 
 ## Requirements
 
@@ -52,7 +52,7 @@ At this time, the qgis plug-in handles two acquisition functions:
  * <a href="https://www.jmlr.org/papers/volume6/luo05a/luo05a.pdf">Breaking Tie<a/>, an inter-class uncertainty heuristic,
  * <a href="https://arxiv.org/abs/1112.5745">BALD<a/>, an epistemic uncertainty heuristic.
 
-See more acquisition functions in AL4EO/benchmark.
+See more acquisition functions in [AL4EO/benchmark](https://github.com/Romain3Ch216/AL4EO/tree/benchmark).
 
 ### Models
   
