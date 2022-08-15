@@ -32,9 +32,9 @@ SENSORS = {
              'GSD': None},
 
     'ITRES': {'name': 'ITRES',
-             'bands': '{}/Sensors/ITER/bands.npy'.format(get_path()),
+             'bands': None, #'{}/Sensors/ITER/bands.npy'.format(get_path()), #clément
              'masked_bands': None,
-             'wavelengths': '{}/Sensors/ITER/wavelengths.npy'.format(get_path()),
+             'wavelengths': None, #'{}/Sensors/ITER/wavelengths.npy'.format(get_path()), #clément
              'wv_unit': 'nm',
              'rgb_bands': (21, 14, 6),
              'GSD': None},

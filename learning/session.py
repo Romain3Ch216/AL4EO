@@ -52,50 +52,34 @@ class ActiveLearningFramework:
 
         print('Computing heuristic...')
         start_query_time = time.time()
-        train_data = self.dataset.train_data
-        pool = self.dataset.pool_data
+        #train_data = self.dataset.train_data
+        train_data = None
 
+        pool = self.dataset.load_data(self.dataset.pool, shuffle=False, split=False)
 
-        if self.config['superpixels']:
-            self.dataset.pool_segmentation_(pool[0], pool[1], self.queried_clusters)
-            pool, cluster_ids, clusters = self.dataset.spectra, self.dataset.cluster_ids, self.dataset.clusters
-            pool = pool, np.arange(pool.shape[0])
-            ranks = self.query(self.model, pool, train_data)
-            self.queried_clusters = ranks
-            indices = []
-            for rank in ranks :
-                cluster_id = cluster_ids[rank]
-                inds = np.where(cluster_id == clusters)
-                random_ind = np.random.randint(low=0, high=len(inds[0]), size=int(self.config['n_random']))
-                indices.extend(inds[0][random_ind])
+        self.coordinates = self.query(self.model, pool, train_data) # This is the coordinates of the selected pixels
+        score = self.query.score
+        coords = self.query.coords # This the coordinates of the pool
 
-            indices = np.array(indices).astype(int)
-            self.coordinates = self.dataset.pool.coordinates.T[indices]
+        # # To show the score
+        # import matplotlib.pyplot as plt 
+        # map_ = np.zeros(self.dataset.img_shape)
+        # coord = tuple((coords[:,0], coords[:,1]))
+        # map_[coord] = score
+        # fig = plt.figure()
+        # plt.imshow(map_)
+        # plt.show()
 
-            if self.query.score is not None:
-                corr = dict((i, self.query.score[i]) for i in range(len(self.query.score)))
-                score = np.vectorize(corr.get)(clusters)
-                score_map = np.zeros_like(self.dataset.train_gt.gt).astype(float)
-                coord = tuple((self.dataset.pool.coordinates[0], self.dataset.pool.coordinates[1]))
-                score_map[coord] = score
-
-        else:
-            ranks = self.query(self.model, pool, train_data)
-            self.coordinates = self.dataset.pool.coordinates.T[ranks]
-            score = self.query.score
-
-        
-        
         query_time = time.time() - start_query_time
-        f.writelines(['{} {} {} {}\n'.format(self.step_, training_time, query_time, pool[0].shape[0])])
+        f.writelines(['{} {} {} {}\n'.format(self.step_, training_time, query_time, self.dataset.pool.size)])
         f.close()
-
+ 
         self.history['coordinates'].extend(list(self.coordinates))
         self.step_ += 1
 
     def oracle(self):
         coordinates = tuple((self.coordinates[:,0], self.coordinates[:,1]))
-        labels = self.dataset.pool.gt[coordinates]
+        labels = self.dataset.pool.data[coordinates]
         self.dataset.train_gt.add(coordinates, labels)
         added_labels = self.dataset.GT['labeled_pool'][coordinates]
         self.history['labels'].extend(added_labels)
@@ -124,11 +108,12 @@ class ActiveLearningFramework:
         if 'weights' in self.config:
             del self.config['weights']
         if 'step' in self.config:
-            pkl.dump((self.history, self.classes, self.config),\
-              open(os.path.join(self.res_dir, 'history_{}_step_{}.pkl'.format(self.config['timestamp'], self.config['step'])), 'wb'))
+            path = os.path.join(self.res_dir, 'history_{}_step_{}.pkl'.format(self.config['timestamp'], self.config['step']))
+            pkl.dump((self.history, self.classes, self.config), open(path, 'wb'))
         else:
-            pkl.dump((self.history, self.classes, self.config),\
-              open(os.path.join(self.res_dir, 'history_{}.pkl'.format(self.config['timestamp'])), 'wb'))
+            path = os.path.join(self.res_dir, 'history_{}.pkl'.format(self.config['timestamp']))
+            pkl.dump((self.history, self.classes, self.config), open(path, 'wb'))
+        return path
 
     def restore(self):
         with open(self.config['restore'], 'rb') as f:
@@ -136,11 +121,10 @@ class ActiveLearningFramework:
 
         self.dataset.label_values = [item['label'] for item in self.classes.values()]
         n_classes = len(self.dataset.label_values)
-        self.dataset.n_classes = n_classes 
+        self.dataset.n_classes = n_classes
         self.config['n_classes'] = n_classes
         self.model, self.query, self.config = load_query(self.config, self.dataset)
 
 
     def init_step(self):
         self.config['pool_size'] = self.dataset.pool.size
-

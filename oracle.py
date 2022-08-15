@@ -92,7 +92,7 @@ app.layout = html.Div(id='container', children=[
     )], style={'margin': '50px 50px'})
 
 @app.callback(Output('mean_spectra', 'figure'),
-              Input('class-checkbox', 'value'))
+                Input('class-checkbox', 'value'))
 def update_mean(classes):
     mean_sp_graph = go.Figure()
     mean_spectra = query.dataset.mean_spectra_
@@ -105,7 +105,7 @@ def update_mean(classes):
     return mean_sp_graph
 
 @app.callback([Output('RGB', 'figure'), Output('spectrum', 'figure'), Output('px-id', 'children')],
-              Input('class-btn', 'n_clicks'))
+                Input('class-btn', 'n_clicks'))
 def update_rgb(n):
     patch_id = min(query.patch_id, len(query.patches.items())-1)
     patch = query.patches[patch_id]
@@ -131,14 +131,14 @@ def update_rgb(n):
     ticks = np.linspace(0,len(wavelengths)-1,20)
 
     sp.update_xaxes(tickangle=45,
-                 title_text = 'Wavelength (µm)',
-                 title_font=dict(size=20, color='black'),
-                 tickmode = 'array',
-                 tickvals = ticks,
-                 ticktext= [wavelengths[int(i)] for i in ticks],
-                 showline=True,
-                 linecolor='#808080',
-                 tickfont=dict(size=18, color='black'), showgrid=True, gridcolor='#808080',)
+                    title_text = 'Wavelength (µm)',
+                    title_font=dict(size=20, color='black'),
+                    tickmode = 'array',
+                    tickvals = ticks,
+                    ticktext= [wavelengths[int(i)] for i in ticks],
+                    showline=True,
+                    linecolor='#808080',
+                    tickfont=dict(size=18, color='black'), showgrid=True, gridcolor='#808080',)
 
     sp.update_yaxes(title_text = "Reflectance", title_font=dict(size=20, color='black'), \
                     tickfont=dict(size=18, color='black'), showgrid=True, gridcolor='#808080', \
@@ -161,7 +161,7 @@ def update_rgb(n):
     return fig, sp, nb_px
 
 @app.callback(Output('annotation', 'data'),
-              Input('class', 'value'))
+                Input('class', 'value'))
 def update_gt(label_id):
     if label_id == None:
         raise PreventUpdate
@@ -169,7 +169,7 @@ def update_gt(label_id):
     return label_id
 
 @app.callback([Output('annotation-div', 'children'), Output('classes', 'children')],
-              Input('class-btn', 'n_clicks'))
+                Input('class-btn', 'n_clicks'))
 def update_gt(n_clicks):
     changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
     if 'class-btn.n_clicks' in changed_id and query.n_added < query.n_px:
@@ -181,7 +181,7 @@ def update_gt(n_clicks):
         raise PreventUpdate
 
 @app.callback(Output('annotation-button', 'children'),
-              [Input('new-class', 'value'), Input('new', 'n_clicks')])
+                [Input('new-class', 'value'), Input('new', 'n_clicks')])
 def add_class(new_class, n_clicks):
     changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
     if 'new.n_clicks' in changed_id:
