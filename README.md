@@ -38,7 +38,7 @@ doi={10.1109/MGRS.2022.3169947}}
 
 AL4EO is compatible with Python 3.6+ and PyTorch 1.10.0+.
 
-The easiest way to install the backend code is to create a AL4EO [conda virtual environment](https://docs.python.org/3/tutorial/venv.html) and to install dependencies using:
+The easiest way to install the code is to create a AL4EO [conda virtual environment](https://docs.python.org/3/tutorial/venv.html) and to install dependencies using:
 
 `pip install -r requirements.txt`
 
