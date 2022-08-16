@@ -26,7 +26,7 @@ We suggest to install QGIS on a [conda virtual environment](https://docs.python.
 
 To install the plug-in, compress the ```qgis_plugin``` folder into a zip file and use the QGIS plug-in manager. 
 
-To plot pixels spectra, we strongly recommend to install this [QGIS Temporal/Spectral Profile Tool](plug-in https://plugins.qgis.org/plugins/temporalprofiletool/).
+To plot pixels spectra, we strongly recommend to install this [QGIS Temporal/Spectral Profile Tool](https://plugins.qgis.org/plugins/temporalprofiletool/).
 
 ### Python dependencies 
 
@@ -75,7 +75,7 @@ Data
 The `image.tiff` file is the image to annotate. Its `image.hdr` header should contain a `bbl` attribute that lists the bad band multiplier values of each band in the image, typically 0 for bad bands and 1 for good bands.
 
 The `labels.tiff` file is the ground truth, encoded in 8-bits, that contains the initial annotations before the first Active Learning step.
-Its `labels.hdr` header should contain a `classes`, a `class lookup` and a `class names` attributes that specify the number of classes, the RGB colors of the classes and the names of the classes, respectively. 
+Its `labels.hdr` header should contain a `classes`, a `class lookup` and a `class names` attributes that specify the number of classes, the RGB colors of the classes and the names of the classes, respectively. For instance:
 
 ```
 classes = 2
@@ -100,3 +100,13 @@ In QGIS,
 This toolbox was used for our review paper in IEEE Geoscience and Remote Sensing Magazine:
 
 > R. Thoreau, V. ACHARD, L. Risser, B. Berthelot and X. BRIOTTET, "Active Learning for Hyperspectral Image Classification: A Comparative Review," in IEEE Geoscience and Remote Sensing Magazine, doi: 10.1109/MGRS.2022.3169947.
+  
+```
+@ARTICLE{9774342,  
+author={Thoreau, Romain and ACHARD, Veronique and Risser, Laurent and Berthelot, Beatrice and BRIOTTET, Xavier},  
+journal={IEEE Geoscience and Remote Sensing Magazine},   
+title={Active Learning for Hyperspectral Image Classification: A Comparative Review},   
+year={2022},    
+pages={2-24},  
+doi={10.1109/MGRS.2022.3169947}}
+```
