@@ -55,6 +55,7 @@ The two major building blocks of the Active Learning Framework are:
 Active Learning techniques iteratively query pixels as follows:
 
 <img src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/al_algo.png" alt="active_learning_flowchart" width="700" />
+
 Seven acquisition functions are implemented in AL4EO:
  * <a href="https://www.jmlr.org/papers/volume6/luo05a/luo05a.pdf">Breaking Tie<a/>, an inter-class uncertainty heuristic,
  * <a href="https://arxiv.org/abs/1112.5745">BALD<a/>, an epistemic uncertainty heuristic,
