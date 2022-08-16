@@ -26,7 +26,7 @@ We suggest to install QGIS on a [conda virtual environment](https://docs.python.
 
 To install the plug-in, compress the ```qgis_plugin``` folder into a zip file and use the QGIS plug-in manager. 
 
-To plot pixels spectra, we strongly recommend to install this [QGIS Temporal/Spectral Profile Tool](https://plugins.qgis.org/plugins/temporalprofiletool/).
+To plot pixels spectra, we strongly recommend to install the [QGIS Temporal/Spectral Profile Tool](https://plugins.qgis.org/plugins/temporalprofiletool/).
 
 ### Python dependencies 
 
