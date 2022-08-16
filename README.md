@@ -99,12 +99,12 @@ Several public hyperspectral datasets are available on the [UPV/EHU](http://www.
 
 ### Adding a new data set
 
-Adding a custom dataset can be done by modifying the `data/datasets.py` file and the `data/sensors.py` file.
+Adding a custom data set can be done by modifying the `data/datasets.py` file and the `data/sensors.py` file.
 
 ## How to start
 
 To run benchmark experiments on already labeled datasets, run the script `main.py`. The mandatory arguments are:
- * `--dataset` to specify which dataset to use (e.g. Houston, Indian Pines, PaviaU, Mauzac...)
+ * `--dataset` to specify which data set to use (e.g. Houston, Indian Pines, PaviaU, Mauzac...)
  * `--query` to specify which active learning query system to use (e.g. breaking_tie, coreset, bald...)
  * `--steps` to specify the number of steps
  * `--n_px` to specify the number of pixels to select at each step
