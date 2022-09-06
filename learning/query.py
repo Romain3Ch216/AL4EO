@@ -111,6 +111,49 @@ class BreakingTie(Query):
         return breaking_ties
 
 
+class ProbabilisticBreakingTie(Query):
+    """
+    Class for Breaking Tie query system
+    """
+
+    def __init__(self, n_px, hyperparams, cost_matrix, shuffle_prop):
+        super().__init__(n_px, hyperparams, cost_matrix, shuffle_prop, reverse=True)
+
+    def compute_score(self, model, pool):
+        data_loader = self.pool_loader(pool)
+        probs = self.compute_probs(model, data_loader)
+        sorted_inds = np.argsort(probs, axis=-1)
+        inds = sorted_inds[:,-2:]
+        inds = tuple((inds[:,0]-1, inds[:,1]-1))
+        weights = self.K[inds].numpy()
+        sorted_probs = np.sort(probs, axis=-1)
+        breaking_ties = sorted_probs[:,-1] - sorted_probs[:,-2]
+        score = 1 - breaking_ties
+        return score, weights
+
+    def __call__(self, model, pool, train_data=None):
+        self.score, weights = self.compute_score(model, pool)
+        indices = np.arange(len(self.score))
+        mask = self.score > 0.8
+        score = self.score[mask]
+        weights = weights[mask]
+        indices = indices[mask]
+        score = score * weights
+        if isinstance(score, type(torch.zeros(1))):
+            score = score.cpu().numpy()
+
+        k = 0
+        while np.sum(score) != 1 and k<10:
+            score = score / np.sum(score)
+            score = np.clip(score, a_min=0, a_max=1)
+            k += 1
+            score = score / np.sum(score)
+            print("Normalizing to probability...")
+
+        random_indices = np.random.choice(np.arange(len(score)), size=min(self.n_px, len(score)), replace=False, p=score)
+        return indices[random_indices]
+
+
 class MaxEntropy(Query):
     """
     Class for Max Entropy query system
@@ -1682,6 +1725,18 @@ def load_query(config, dataset):
         config.setdefault('scheduler', optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=config['epochs']//4, verbose=True))
         model = NeuralNetwork(net, optimizer, criterion)
         query = BreakingTie(config['n_px'], config, shuffle_prop=0)
+
+    elif config['query'] == 'probabilistic_breaking_tie':
+        config.setdefault('batch_size', 128)
+        config.setdefault('weight_decay', 0)
+        lr = config.setdefault('learning_rate', 0.01)
+        net = HuEtAl(dataset.n_bands, dataset.n_classes)
+        net = net.to(config['device'])
+        optimizer = optim.Adam(net.parameters(), lr=lr, weight_decay=config['weight_decay'])
+        criterion = nn.CrossEntropyLoss(weight=config['weights'])
+        config.setdefault('scheduler', optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=config['epochs']//4, verbose=True))
+        model = NeuralNetwork(net, optimizer, criterion)
+        query = ProbabilisticBreakingTie(config['n_px'], config, dataset.cost_matrix, shuffle_prop=0)
 
     elif config['query'] == 'coreset':
         config.setdefault('batch_size', 128)

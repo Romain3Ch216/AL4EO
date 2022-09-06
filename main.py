@@ -46,6 +46,7 @@ query_options.add_argument('--M', type=int, help='LAL hyperparams', default=None
 query_options.add_argument('--tau', type=str, help='LAL hyperparams', default=None)
 query_options.add_argument('--outlier_prop', type=float, help='Coreset outliers budget', default=None)
 query_options.add_argument('--beta', type=float, default=None, help='Hierarchical hyperparam')
+query_options.add_argument('--cost_matrix', type=str, default=None, help='Path to cost of confusion matrix')
 
 # Training options
 training_options = parser.add_argument_group('Training')
@@ -85,7 +86,12 @@ config['res_dir'] = '{}/Results/ActiveLearning/'.format(get_path()) + config['da
 if config['superpixels']:
     print("Segment image in superpixels...")
     dataset.segmentation_(args.n_segments, args.compactness)
-    
+
+if config['query'] == 'probabilistic_breaking_tie':
+    if config['cost_matrix'] is None:
+        raise Exception("You should specify a cost of confusion matrix to use Probabilistic Breaking Tie") 
+    dataset.cost_matrix = np.load(config['cost_matrix'])
+
 try:
     os.makedirs(config['res_dir'], exist_ok=True)
 except OSError as exc:
