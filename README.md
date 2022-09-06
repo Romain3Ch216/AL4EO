@@ -58,6 +58,7 @@ Active Learning techniques iteratively query pixels as follows:
 
 Seven acquisition functions are implemented in AL4EO:
  * <a href="https://www.jmlr.org/papers/volume6/luo05a/luo05a.pdf">Breaking Tie<a/>, an inter-class uncertainty heuristic,
+ * <a href="#">Probabilistic Breaking Tie<a/>, an inter-class uncertainty heuristic,
  * <a href="https://arxiv.org/abs/1112.5745">BALD<a/>, an epistemic uncertainty heuristic,
  * <a href="https://proceedings.neurips.cc/paper/2019/hash/95323660ed2124450caaac2c46b5ed90-Abstract.html">Batch-BALD<a/>, an epistemic uncertainty heuristic,
  * <a href="https://arxiv.org/abs/1708.00489">Core-Set<a/>, a representativeness heuristic,
