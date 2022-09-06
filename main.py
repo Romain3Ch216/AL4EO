@@ -88,7 +88,7 @@ if config['superpixels']:
     dataset.segmentation_(args.n_segments, args.compactness)
 
 if config['query'] == 'probabilistic_breaking_tie':
-    if config['cost_matrix'] is None:
+    if 'cost_matrix' not in config:
         raise Exception("You should specify a cost of confusion matrix to use Probabilistic Breaking Tie") 
     dataset.cost_matrix = np.load(config['cost_matrix'])
 

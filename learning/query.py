@@ -117,7 +117,8 @@ class ProbabilisticBreakingTie(Query):
     """
 
     def __init__(self, n_px, hyperparams, cost_matrix, shuffle_prop):
-        super().__init__(n_px, hyperparams, cost_matrix, shuffle_prop, reverse=True)
+        super().__init__(n_px, hyperparams, shuffle_prop, reverse=True)
+        self.cost_matrix = cost_matrix
 
     def compute_score(self, model, pool):
         data_loader = self.pool_loader(pool)
@@ -125,7 +126,7 @@ class ProbabilisticBreakingTie(Query):
         sorted_inds = np.argsort(probs, axis=-1)
         inds = sorted_inds[:,-2:]
         inds = tuple((inds[:,0]-1, inds[:,1]-1))
-        weights = self.K[inds].numpy()
+        weights = self.cost_matrix[inds]
         sorted_probs = np.sort(probs, axis=-1)
         breaking_ties = sorted_probs[:,-1] - sorted_probs[:,-2]
         score = 1 - breaking_ties
