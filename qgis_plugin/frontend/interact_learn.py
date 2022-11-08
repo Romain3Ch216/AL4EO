@@ -96,7 +96,7 @@ class InteractLearn(core_plugin):
             renderer.setOpacity(0.7)
 
             #reproject label layer to data layer size
-            formatAnnotationRaster(dataset_param['img_pth'], dataset_param['gt_pth'])
+            # formatAnnotationRaster(dataset_param['img_pth'], dataset_param['gt_pth'])
             name = self.layerLabel.name()
             QgsProject.instance().removeMapLayer(self.layerLabel.id())
             self.layerLabel = self.iface.addRasterLayer(dataset_param['gt_pth'], name)
