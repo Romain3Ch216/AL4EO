@@ -14,9 +14,9 @@
 
 AL4EO/qgis-plugin is a <a href="https://www.qgis.org/fr/site/"> QGIS </a> plug-in to run Active Learning techniques on Earth observation data. <br/>  
 The goal of Active Learning is to interactively build optimal training data sets for supervised learning.
-For further details on Active Learning for Earth observation, you can read our comparative review <a href="https://ieeexplore.ieee.org/document/9774342">here</a>.
+For further details on Active Learning for remote sensing data, see our comparative review <a href="https://ieeexplore.ieee.org/document/9774342">here</a>.
 
-To run benchmark experiments, see the branch `benchmark` of this repository.
+To run benchmark experiments, see the [benchmark](https://github.com/Romain3Ch216/AL4EO/tree/benchmark) branch of this repository. 
 
 ## Requirements
 
@@ -25,6 +25,8 @@ To run benchmark experiments, see the branch `benchmark` of this repository.
 We suggest to install QGIS on a [conda virtual environment](https://docs.python.org/3/tutorial/venv.html) with a 1.3b2 [rasterio](https://rasterio.readthedocs.io/en/latest/) version.
 
 To install the plug-in, compress the ```qgis_plugin``` folder into a zip file and use the QGIS plug-in manager. 
+
+To plot pixels spectra, we strongly recommend to install the [QGIS Temporal/Spectral Profile Tool](https://plugins.qgis.org/plugins/temporalprofiletool/).
 
 ### Python dependencies 
 
@@ -52,7 +54,7 @@ At this time, the qgis plug-in handles two acquisition functions:
  * <a href="https://www.jmlr.org/papers/volume6/luo05a/luo05a.pdf">Breaking Tie<a/>, an inter-class uncertainty heuristic,
  * <a href="https://arxiv.org/abs/1112.5745">BALD<a/>, an epistemic uncertainty heuristic.
 
-See more acquisition functions in AL4EO/benchmark.
+See more acquisition functions in [AL4EO/benchmark](https://github.com/Romain3Ch216/AL4EO/tree/benchmark).
 
 ### Models
   
@@ -73,7 +75,7 @@ Data
 The `image.tiff` file is the image to annotate. Its `image.hdr` header should contain a `bbl` attribute that lists the bad band multiplier values of each band in the image, typically 0 for bad bands and 1 for good bands.
 
 The `labels.tiff` file is the ground truth, encoded in 8-bits, that contains the initial annotations before the first Active Learning step.
-Its `labels.hdr` header should contain a `classes`, a `class lookup` and a `class names` attributes that specify the number of classes, the RGB colors of the classes and the names of the classes, respectively. 
+Its `labels.hdr` header should contain a `classes`, a `class lookup` and a `class names` attributes that specify the number of classes, the RGB colors of the classes and the names of the classes, respectively. For instance:
 
 ```
 classes = 2
@@ -98,3 +100,13 @@ In QGIS,
 This toolbox was used for our review paper in IEEE Geoscience and Remote Sensing Magazine:
 
 > R. Thoreau, V. ACHARD, L. Risser, B. Berthelot and X. BRIOTTET, "Active Learning for Hyperspectral Image Classification: A Comparative Review," in IEEE Geoscience and Remote Sensing Magazine, doi: 10.1109/MGRS.2022.3169947.
+  
+```
+@ARTICLE{9774342,  
+author={Thoreau, Romain and ACHARD, Veronique and Risser, Laurent and Berthelot, Beatrice and BRIOTTET, Xavier},  
+journal={IEEE Geoscience and Remote Sensing Magazine},   
+title={Active Learning for Hyperspectral Image Classification: A Comparative Review},   
+year={2022},    
+pages={2-24},  
+doi={10.1109/MGRS.2022.3169947}}
+```

@@ -70,6 +70,9 @@ class ActiveLearningFramework:
         # plt.imshow(map_)
         # plt.show()
 
+        # import pdb 
+        # pdb.set_trace()
+        
         query_time = time.time() - start_query_time
         f.writelines(['{} {} {} {}\n'.format(self.step_, training_time, query_time, self.dataset.pool.size)])
         f.close()
