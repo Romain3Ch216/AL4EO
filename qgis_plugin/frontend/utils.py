@@ -11,6 +11,7 @@ from qgis.core import (
 )
 import rasterio as rio
 from rasterio.warp import reproject, Resampling
+import processing
 
 class WarnQgs:
     """Warning class used to pass Exceptions to Qgis without interrupting the daemon"""
