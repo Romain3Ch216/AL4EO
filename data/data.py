@@ -79,6 +79,11 @@ class Dataset:
             self.load_geo_ref_img(img_pth, gt_pth)
             self.img_pth = img_pth
             self.type = 'hdr'
+        elif img_pth[-3:] == 'bsq':
+            type = 'bsq'
+            self.load_geo_ref_img(img_pth, gt_pth)
+            self.img_pth = img_pth
+            self.type = 'hdr'
         else:
             raise NotImplementedError("Only .tiff file format is accepted.")
 
