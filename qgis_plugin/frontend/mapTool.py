@@ -14,7 +14,6 @@ class MapTool(QgsMapToolEmitPoint):
         self.height = self.layer.height()
         self.xsize = self.layer.rasterUnitsPerPixelX()
         self.ysize = self.layer.rasterUnitsPerPixelY()
-        print(self.width, self.height, self.xsize, self.ysize)
         extent = self.layer.extent()
         self.ymax = extent.yMaximum()
         self.xmin = extent.xMinimum()
@@ -27,7 +26,6 @@ class MapTool(QgsMapToolEmitPoint):
 
 
     def canvasDoubleClickEvent(self, event):
-        print("DoubleClicking")
         polygon = Path(self.points)
         points_in = polygon.contains_points(self.grid)
         points_in = self.grid[points_in]
@@ -43,7 +41,6 @@ class MapTool(QgsMapToolEmitPoint):
         self.points = []
 
     def onClick(self, point, button):
-
         #row in pixel coordinates
         row = int(((self.ymax - point.y()) / self.ysize))
 
@@ -56,6 +53,5 @@ class MapTool(QgsMapToolEmitPoint):
             column = "out of extent"
         else:
             self.points.append([column, row])                
-            print(self.points)
 
     
