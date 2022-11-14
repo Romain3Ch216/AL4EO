@@ -22,7 +22,7 @@ To run benchmark experiments, see the [benchmark](https://github.com/Romain3Ch21
 
 ### QGIS
 
-We suggest to install QGIS on a [conda virtual environment](https://docs.python.org/3/tutorial/venv.html) with a 1.3b2 [rasterio](https://rasterio.readthedocs.io/en/latest/) version.
+We suggest to install QGIS on a [conda virtual environment](https://docs.python.org/3/tutorial/venv.html) with the latest [matplotlib](https://pypi.org/project/matplotlib/) version.
 
 To install the plug-in, compress the ```qgis_plugin``` folder into a zip file and use the QGIS plug-in manager. 
 
