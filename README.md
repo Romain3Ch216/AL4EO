@@ -103,7 +103,7 @@ This toolbox was used for our review paper in IEEE Geoscience and Remote Sensing
   
 ```
 @ARTICLE{9774342,  
-author={Thoreau, Romain and ACHARD, Veronique and Risser, Laurent and Berthelot, Beatrice and BRIOTTET, Xavier},  
+author={Thoreau, Romain and Achard, Veronique and Risser, Laurent and Berthelot, Beatrice and Briottet, Xavier},  
 journal={IEEE Geoscience and Remote Sensing Magazine},   
 title={Active Learning for Hyperspectral Image Classification: A Comparative Review},   
 year={2022},    
