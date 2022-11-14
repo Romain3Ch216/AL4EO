@@ -123,7 +123,8 @@ class Dataset:
             
 
     #Create dataloader for geo referenced image, if shuffle == True, indice are shuffled in the HyperHdrX class
-    def load_data(self, gt, split=True, shuffle=True):
+    def load_data(self, gt, split=True, shuffle=True, bounding_box=None):
+        self.hyperparams['bounding_box'] = bounding_box
         data_ = GeoHyperX(self.img_pth, gt, self.img_min, self.img_max, shuffle, **self.hyperparams)
         use_cuda = self.hyperparams['device'] == 'cuda'
         N = len(data_)
@@ -216,11 +217,13 @@ class GeoHyperX(torch.utils.data.Dataset):
         super(GeoHyperX, self).__init__()
 
         self.label = np.copy(gt.data)
+
         self.patch_size = hyperparams["patch_size"]
         self.ignored_labels = set(hyperparams["ignored_labels"])
         self.data_min = data_min
         self.data_max = data_max
         self.shuffle = shuffle
+        bounding_box = hyperparams['bounding_box']
 
         self.coordinates = np.array(np.where(self.label == self.label)).T
 
@@ -249,8 +252,11 @@ class GeoHyperX(torch.utils.data.Dataset):
             mask[gt.data == l] = 0
 
         #get all non zero pixel indice (row and col)
+
         x_pos, y_pos = np.nonzero(mask)
-        print(len(x_pos))
+        if bounding_box is not None:
+            in_box = (x_pos > bounding_box[0][1]) * (y_pos > bounding_box[0][0]) * (x_pos < bounding_box[1][1]) * (y_pos < bounding_box[1][0])
+            x_pos, y_pos = x_pos[in_box], y_pos[in_box]
 
         #arrange non zero pixels indices by block 
         p = self.patch_size // 2
@@ -281,6 +287,7 @@ class GeoHyperX(torch.utils.data.Dataset):
         #Convert blocks slices and indices into numpy array
         self.blocks_slices = np.array(self.blocks_slices, dtype=tuple)
         self.indices = np.array(self.indices, dtype=list)
+
 
     def closeDataFile(self):
         self.data_src.close()

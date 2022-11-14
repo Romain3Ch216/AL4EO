@@ -38,7 +38,7 @@ class ActiveLearningFramework:
             print('Restore history...')
             self.restore()
 
-    def step(self):
+    def step(self, bounding_box):
         self.init_step()
         self.model.init_params()
 
@@ -55,7 +55,7 @@ class ActiveLearningFramework:
         #train_data = self.dataset.train_data
         train_data = None
 
-        pool = self.dataset.load_data(self.dataset.pool, shuffle=False, split=False)
+        pool = self.dataset.load_data(self.dataset.pool, shuffle=False, split=False, bounding_box=bounding_box)
 
         self.coordinates = self.query(self.model, pool, train_data) # This is the coordinates of the selected pixels
         score = self.query.score
