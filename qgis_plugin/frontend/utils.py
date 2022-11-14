@@ -96,6 +96,10 @@ def updateClassNameColor(class_names, class_color, gt_pth):
 
     src = gdal.Open(gt_pth, gdal.gdalconst.GA_Update)
     meta_data = src.GetMetadata('ENVI')
+    del meta_data['classes']
+    del meta_data['class_lookup']
+    del meta_data['class_names']
+
     meta_data['classes'] = len(class_names)
     meta_data['class_lookup'] = class_lookup_string
     meta_data['class_name'] = class_names_string

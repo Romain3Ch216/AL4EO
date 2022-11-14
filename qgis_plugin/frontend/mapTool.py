@@ -26,19 +26,20 @@ class MapTool(QgsMapToolEmitPoint):
 
 
     def canvasDoubleClickEvent(self, event):
-        polygon = Path(self.points)
-        points_in = polygon.contains_points(self.grid)
-        points_in = self.grid[points_in]
+        if self.annotation_option == 'Polygon':
+            polygon = Path(self.points)
+            points_in = polygon.contains_points(self.grid)
+            points_in = self.grid[points_in]
 
-        self.block.setData(self.classeSelected.to_bytes(2, 'little'), 0)
-        self.provider.setEditable(True)
-        n = len(points_in)
-        for i in range(n):
-            pt = points_in[i]
-            self.provider.writeBlock(self.block, 1, points_in[i][0], points_in[i][1])
-        self.provider.setEditable(False)
-        self.layer.triggerRepaint()
-        self.points = []
+            self.block.setData(self.classeSelected.to_bytes(2, 'little'), 0)
+            self.provider.setEditable(True)
+            n = len(points_in)
+            for i in range(n):
+                pt = points_in[i]
+                self.provider.writeBlock(self.block, 1, points_in[i][0], points_in[i][1])
+            self.provider.setEditable(False)
+            self.layer.triggerRepaint()
+            self.points = []
 
     def onClick(self, point, button):
         #row in pixel coordinates
@@ -52,6 +53,14 @@ class MapTool(QgsMapToolEmitPoint):
             row = "out of extent"
             column = "out of extent"
         else:
-            self.points.append([column, row])                
+            if self.annotation_option == 'Polygon':
+                self.points.append([column, row])    
+            elif self.annotation_option == 'Pixel':
+                self.block.setData(self.classeSelected.to_bytes(2, 'little'), 0)
+                self.provider.setEditable(True)
+                self.provider.writeBlock(self.block, 1, column, row)
+                self.provider.setEditable(False)
+                self.layer.triggerRepaint()
+
 
     
