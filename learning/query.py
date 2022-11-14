@@ -717,37 +717,54 @@ class Coreset(Query):
         self.subsample = hyperparams['subsample']
         self.model_feature = 'cnn'
 
-    def greedy_k_center(self, labeled, unlabeled, amount):
+    def greedy_k_center(self, labeled_features, unlabeled_pool, amount):
 
         greedy_indices = []
+        min_dist = []
+        coords_x, coords_y = [], []
 
-        # get the minimum distances between the labeled and unlabeled examples (iteratively, to avoid memory issues):
-        min_dist = np.min(distance_matrix(labeled[0, :].reshape((1, labeled.shape[1])), unlabeled), axis=0)
-        min_dist = min_dist.reshape((1, min_dist.shape[0]))
-        for j in range(1, labeled.shape[0], 100):
-            if j + 100 < labeled.shape[0]:
-                dist = distance_matrix(labeled[j:j+100, :], unlabeled)
-            else:
-                dist = distance_matrix(labeled[j:, :], unlabeled)
-            min_dist = np.vstack((min_dist, np.min(dist, axis=0).reshape((1, min_dist.shape[1]))))
-            min_dist = np.min(min_dist, axis=0)
-            min_dist = min_dist.reshape((1, min_dist.shape[0]))
+        unlabeled_batch, _, unlabeled_coord = next(iter(unlabeled_pool))
+        unlabeled_features = model.predict_batch(unlabeled_batch, self.hyperparams)
+        dist = torch.cdist(labeled_features, unlabeled_features)
+        min_dist, _ = torch.min(dist, dim=0)
+        min_dist = min_dist.view(1, unlabeled_batch.shape[0])
+        coords_x.extend(unlabeled_coord[0].numpy())
+        coords_y.extend(unlabeled_coord[1].numpy())
 
-        # iteratively insert the farthest index and recalculate the minimum distances:
-        farthest = np.argmax(min_dist)
+        for i, (unlabeled_batch, _, unlabeled_coord) in enumerate(unlabeled_pool):
+            if i > 0:
+                unlabeled_features = model.predict_batch(unlabeled_batch, self.hyperparams)
+                dist = torch.cdist(labeled_features, unlabeled_features)
+                min_, _ = torch.min(dist, dim=0)
+                min_ = min_.view(1, unlabeled_batch.shape[0])
+                min_dist = torch.cat((min_dist, min_), dim=1)
+
+                coords_x.extend(unlabeled_coord[0].numpy())
+                coords_y.extend(unlabeled_coord[1].numpy())
+
+        coords = np.array(tuple((coords_x, coords_y))).T
+        farthest = torch.argmax(min_dist).item()
         greedy_indices.append(farthest)
+
         for i in range(amount-1):
-            if i%1000==0:
-                print("At Point " + str(i))
-            # Calcule la distance avec les greedy points et pas avec la base d'apprentissage ? OK
-            dist = distance_matrix(unlabeled[greedy_indices[-1], :].reshape((1,unlabeled.shape[1])), unlabeled)
-            min_dist = np.vstack((min_dist, dist.reshape((1, min_dist.shape[1]))))
-            min_dist = np.min(min_dist, axis=0)
-            min_dist = min_dist.reshape((1, min_dist.shape[0]))
-            farthest = np.argmax(min_dist)
+            last_feature = model.predict_batch(self.get_sp_from_img(coords[greedy_indices[-1]]), self.hyperparams)
+            dist_ = []
+            for unlabeled_batch, _, unlabeled_coord in unlabeled_pool:
+                unlabeled_features = model.predict_batch(unlabeled_batch, self.hyperparams)
+                dist = torch.cdist(last_feature, unlabeled_features)
+                dist_.append(dist)
+
+            dist_ = torch.cat(dist_, dim=1)
+            min_dist = torch.cat((min_dist, dist_), dim=0)
+            min_dist, _ = torch.min(min_dist, dim=0)
+            min_dist = min_dist.view(1, min_dist.shape[0])
+            farthest = torch.argmax(min_dist).item()
             greedy_indices.append(farthest)
 
-        return np.array(greedy_indices, dtype=int), np.max(min_dist)
+        max_dist = torch.max(min_dist) 
+        return np.array(greedy_indices, dtype=int), max_dist.numpy()
+
+    # tester greedy, besoin d'implémenter get_sp_from_img et mettre le subsample dans le session
 
     def get_distance_matrix(self, X, Y):
         dist_mat = np.matmul(X,Y.transpose())
@@ -865,38 +882,18 @@ class Coreset(Query):
         return model, graph, points, outliers
 
 
-    def __call__(self, model, pool, train_data):
-        train_representation, _ = train_data
-        labeled_idx = np.arange(train_representation.shape[0])
-        pool_representation, _ =  pool
-        unlabeled_idx = np.arange(train_representation.shape[0], train_representation.shape[0] + pool_representation.shape[0])
-        representation = np.concatenate((train_representation, pool_representation), axis=0)
-        outlier_count = int(representation.shape[0] * self.outlier_prop)
+    def __call__(self, model, unlabeled_pool, labeled_pool):
+        n_labeled = get_size_loader(labeled_pool)
+        labeled_idx = np.arange(n_labeled)
+        n_unlabeled = get_size_loader(unlabeled_pool)
+        unlabeled_idx = np.arange(n_labeled, n_labeled + n_unlabeled)
+        outlier_count = int((n_labeled+n_unlabeled) * self.outlier_prop)
 
-        start_time = time.time()
-
-        train_loader = self.train_loader(train_data)
-        train_representation = self.compute_probs(model, train_loader)
-        pool_loader = self.pool_loader(pool)
-        pool_representation = self.compute_probs(model, pool_loader)
-
-        if self.subsample:
-            subsample_num = int(self.subsample*pool_representation.shape[0])
-            print('Subsampling... {} samples'.format(subsample_num))
-            subsample_idx = np.random.choice(np.arange(pool_representation.shape[0]), subsample_num, replace=False)
-            pool_representation = pool_representation[subsample_idx]
-            unlabeled_idx = np.arange(train_representation.shape[0], train_representation.shape[0] + pool_representation.shape[0])
-
-        representation = np.concatenate((train_representation, pool_representation), axis=0)
-        print('Total number of training samples: {}'.format(train_representation.shape[0]))
-        print('Total number of pool samples: {}'.format(pool_representation.shape[0]))
-
-        t = time.time() - start_time
-        print('Feature extraction done in {}m...'.format(t/60))
+        train_representation = self.compute_probs(model, labeled_pool)
 
         # use the learned representation for the k-greedy-center algorithm:
         print("Calculating Greedy K-Center Solution...")
-        greedy_solution, max_delta = self.greedy_k_center(train_representation, pool_representation, self.n_px)
+        greedy_solution, max_delta = self.greedy_k_center(train_representation, unlabeled_pool, self.n_px)
         new_indices = unlabeled_idx[greedy_solution]
         # submipnodes = 20000
 
