@@ -83,9 +83,6 @@ def getClasseNameColor(gt_path):
     class_names = src_tags['class_names'].replace(' ', '').replace('{', '').replace('}', '').split(',')
     class_lookup = src_tags['class_lookup'].replace(' ', '').replace('{', '').replace('}', '').split(',')
     class_color = [(int(class_lookup[i]), int(class_lookup[i+1]), int(class_lookup[i+2])) for i in range(0, len(class_lookup), 3)]
-
-    class_color = [(int(class_lookup[i]), int(class_lookup[i+1]), int(class_lookup[i+2])) for i in range(0, len(class_lookup), 3)]
-
     return class_names, class_color
 
 def updateClassNameColor(class_names, class_color, gt_pth):
@@ -99,6 +96,10 @@ def updateClassNameColor(class_names, class_color, gt_pth):
 
     src = gdal.Open(gt_pth, gdal.gdalconst.GA_Update)
     meta_data = src.GetMetadata('ENVI')
+    del meta_data['classes']
+    del meta_data['class_lookup']
+    del meta_data['class_names']
+
     meta_data['classes'] = len(class_names)
     meta_data['class_lookup'] = class_lookup_string
     meta_data['class_name'] = class_names_string

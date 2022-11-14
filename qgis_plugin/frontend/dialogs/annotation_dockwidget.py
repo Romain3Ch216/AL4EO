@@ -72,6 +72,8 @@ class annotationDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
     def comboBoxChanged(self):
         #when comboBox selection change, update MapTool selected classe and color indicator
         self.mapTool.classeSelected = int(self.comboBox_classe.currentData())
+        self.mapTool.annotation_option = self.comboBox_annotation_option.currentText()
+
         index = self.comboBox_classe.currentIndex()
         color = self.class_color[index]
         self.toolButton_color.setStyleSheet("background:rgb({},{},{});".format(color[0], color[1], color[2]))
@@ -98,9 +100,10 @@ class annotationDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
 
         #create MapTool for annotation
         self.mapTool = MapTool(self.iface.mapCanvas(), self.annot_layer, int(self.comboBox_classe.currentData()))
-        self.toolButton_annotPointer.clicked.connect(self.activateMapTool)
+        self.toolButton_annot.clicked.connect(self.activateMapTool)
         
         self.comboBox_classe.currentIndexChanged.connect(self.comboBoxChanged)
+        self.comboBox_annotation_option.currentIndexChanged.connect(self.comboBoxChanged)
         self.comboBoxChanged()
 
     def activateMapTool(self):
