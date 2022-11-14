@@ -83,9 +83,6 @@ def getClasseNameColor(gt_path):
     class_names = src_tags['class_names'].replace(' ', '').replace('{', '').replace('}', '').split(',')
     class_lookup = src_tags['class_lookup'].replace(' ', '').replace('{', '').replace('}', '').split(',')
     class_color = [(int(class_lookup[i]), int(class_lookup[i+1]), int(class_lookup[i+2])) for i in range(0, len(class_lookup), 3)]
-
-    class_color = [(int(class_lookup[i]), int(class_lookup[i+1]), int(class_lookup[i+2])) for i in range(0, len(class_lookup), 3)]
-
     return class_names, class_color
 
 def updateClassNameColor(class_names, class_color, gt_pth):
