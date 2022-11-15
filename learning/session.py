@@ -55,11 +55,11 @@ class ActiveLearningFramework:
 
         if self.config['subsample'] < 1:
             # train_data, _ = self.dataset.load_data(self.dataset.train_gt, shuffle=False, split=self.config['subsample'])
-            train_data = self.dataset.load_data(self.dataset.train_gt, shuffle=False, split=False)
-            pool = self.dataset.subsample_loader(self.dataset.pool, self.config['subsample'], bounding_box=bounding_box)
+            train_data = self.dataset.load_data(self.dataset.train_gt, self.config['batch_size'], shuffle=False, split=False)
+            pool = self.dataset.subsample_loader(self.dataset.pool, self.config['subsample'], self.config['pool_batch'], bounding_box=bounding_box)
         else:
-            train_data = self.dataset.load_data(self.dataset.train_gt, shuffle=False, split=False)
-            pool = self.dataset.load_data(self.dataset.pool, shuffle=False, split=False, bounding_box=bounding_box)
+            train_data = self.dataset.load_data(self.dataset.train_gt, self.config['batch_size'], shuffle=False, split=False)
+            pool = self.dataset.load_data(self.dataset.pool, self.config['pool_batch'], shuffle=False, split=False, bounding_box=bounding_box)
 
         self.coordinates = self.query(self.model, pool, train_data) # This is the coordinates of the selected pixels
         score = self.query.score

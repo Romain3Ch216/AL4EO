@@ -716,6 +716,7 @@ class Coreset(Query):
         self.outlier_prop = hyperparams['outlier_prop']
         self.subsample = hyperparams['subsample']
         self.model_feature = 'cnn'
+        self.hyperparams = hyperparams
 
     def get_sp_from_img(self, coord):
         import rasterio
@@ -744,6 +745,7 @@ class Coreset(Query):
 
         unlabeled_batch, _, unlabeled_coord = next(iter(unlabeled_pool))
         unlabeled_features = model.predict_batch(unlabeled_batch, self.hyperparams)
+
         dist = torch.cdist(labeled_features, unlabeled_features)
         min_dist, _ = torch.min(dist, dim=0)
         min_dist = min_dist.view(1, unlabeled_batch.shape[0])
@@ -908,7 +910,7 @@ class Coreset(Query):
         unlabeled_idx = np.arange(n_labeled, n_labeled + n_unlabeled)
         outlier_count = int((n_labeled+n_unlabeled) * self.outlier_prop)
 
-        train_representation = self.compute_probs(model, labeled_pool)
+        train_representation, _ = self.compute_probs(model, labeled_pool)
 
         # use the learned representation for the k-greedy-center algorithm:
         print("Calculating Greedy K-Center Solution...")

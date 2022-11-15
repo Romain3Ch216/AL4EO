@@ -123,7 +123,7 @@ class Dataset:
             
 
     #Create dataloader for geo referenced image, if shuffle == True, indice are shuffled in the HyperHdrX class
-    def load_data(self, gt, split=True, shuffle=True, bounding_box=None):
+    def load_data(self, gt, batch_size, split=True, shuffle=True, bounding_box=None):
         self.hyperparams['bounding_box'] = bounding_box
         data_ = GeoHyperX(self.img_pth, gt, self.img_min, self.img_max, shuffle, **self.hyperparams)
         use_cuda = self.hyperparams['device'] == 'cuda'
@@ -141,15 +141,15 @@ class Dataset:
 
             #create DataLoader with previous Subset Sampler
             train_loader  = data.DataLoader(data_, sampler=train_sampler,
-                                      batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
+                                      batch_size=batch_size, pin_memory=use_cuda)
             val_loader  = data.DataLoader(data_, sampler = val_sampler,
-                                      batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
+                                      batch_size=batch_size, pin_memory=use_cuda)
             return train_loader, val_loader
         else:
-            loader  = data.DataLoader(data_, batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
+            loader  = data.DataLoader(data_, batch_size=batch_size, pin_memory=use_cuda)
             return loader
 
-    def subsample_loader(self, gt, split, bounding_box=None):
+    def subsample_loader(self, gt, split, batch_size, bounding_box=None):
         self.hyperparams['bounding_box'] = bounding_box
         data_ = GeoHyperX(self.img_pth, gt, self.img_min, self.img_max, True, **self.hyperparams)
         use_cuda = self.hyperparams['device'] == 'cuda'
@@ -166,7 +166,7 @@ class Dataset:
 
         #create DataLoader with previous Subset Sampler
         loader  = data.DataLoader(data_, sampler=sampler,
-                                  batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
+                                  batch_size=batch_size, pin_memory=use_cuda)
 
         return loader
 
