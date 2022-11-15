@@ -736,7 +736,7 @@ class Coreset(Query):
         sp = (sp-img_min)/(img_max-img_min)
         return torch.from_numpy(sp).float()
 
-    def greedy_k_center(self, labeled_features, unlabeled_pool, amount):
+    def greedy_k_center(self, model, labeled_features, unlabeled_pool, amount):
 
         greedy_indices = []
         min_dist = []
@@ -912,7 +912,7 @@ class Coreset(Query):
 
         # use the learned representation for the k-greedy-center algorithm:
         print("Calculating Greedy K-Center Solution...")
-        greedy_solution, max_delta = self.greedy_k_center(train_representation, unlabeled_pool, self.n_px)
+        greedy_solution, max_delta = self.greedy_k_center(model, train_representation, unlabeled_pool, self.n_px)
         pdb.set_trace()
         new_indices = unlabeled_idx[greedy_solution]
         # submipnodes = 20000
