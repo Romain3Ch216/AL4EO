@@ -716,242 +716,124 @@ class Coreset(Query):
         self.outlier_prop = hyperparams['outlier_prop']
         self.subsample = hyperparams['subsample']
         self.model_feature = 'cnn'
+        self.hyperparams = hyperparams
 
-    def greedy_k_center(self, labeled, unlabeled, amount):
-
+    def greedy_k_center(self, model, labeled_features, unlabeled_pool, amount):
+        t = time.time()
         greedy_indices = []
+        min_dist = []
+        coords_x, coords_y = [], []
 
-        # get the minimum distances between the labeled and unlabeled examples (iteratively, to avoid memory issues):
-        min_dist = np.min(distance_matrix(labeled[0, :].reshape((1, labeled.shape[1])), unlabeled), axis=0)
-        min_dist = min_dist.reshape((1, min_dist.shape[0]))
-        for j in range(1, labeled.shape[0], 100):
-            if j + 100 < labeled.shape[0]:
-                dist = distance_matrix(labeled[j:j+100, :], unlabeled)
-            else:
-                dist = distance_matrix(labeled[j:, :], unlabeled)
-            min_dist = np.vstack((min_dist, np.min(dist, axis=0).reshape((1, min_dist.shape[1]))))
-            min_dist = np.min(min_dist, axis=0)
-            min_dist = min_dist.reshape((1, min_dist.shape[0]))
+        unlabeled_batch, _, unlabeled_coord = next(iter(unlabeled_pool))
+        unlabeled_features = model.predict_batch(unlabeled_batch, self.hyperparams)
 
-        # iteratively insert the farthest index and recalculate the minimum distances:
-        farthest = np.argmax(min_dist)
+        dist = torch.cdist(labeled_features, unlabeled_features)
+        min_dist, _ = torch.min(dist, dim=0)
+        min_dist = min_dist.view(1, unlabeled_batch.shape[0])
+        coords_x.extend(unlabeled_coord[0].numpy())
+        coords_y.extend(unlabeled_coord[1].numpy())
+
+        for i, (unlabeled_batch, _, unlabeled_coord) in enumerate(unlabeled_pool):
+            if i > 0:
+                unlabeled_features = model.predict_batch(unlabeled_batch, self.hyperparams)
+                dist = torch.cdist(labeled_features, unlabeled_features)
+                min_, _ = torch.min(dist, dim=0)
+                min_ = min_.view(1, unlabeled_batch.shape[0])
+                min_dist = torch.cat((min_dist, min_), dim=1)
+
+                coords_x.extend(unlabeled_coord[0].numpy())
+                coords_y.extend(unlabeled_coord[1].numpy())
+
+        coords = np.array(tuple((coords_x, coords_y))).T
+        farthest = torch.argmax(min_dist).item()
         greedy_indices.append(farthest)
+
         for i in range(amount-1):
-            if i%1000==0:
-                print("At Point " + str(i))
-            # Calcule la distance avec les greedy points et pas avec la base d'apprentissage ? OK
-            dist = distance_matrix(unlabeled[greedy_indices[-1], :].reshape((1,unlabeled.shape[1])), unlabeled)
-            min_dist = np.vstack((min_dist, dist.reshape((1, min_dist.shape[1]))))
-            min_dist = np.min(min_dist, axis=0)
-            min_dist = min_dist.reshape((1, min_dist.shape[0]))
-            farthest = np.argmax(min_dist)
+            last_feature = model.predict_batch(self.get_sp_from_img(coords[greedy_indices[-1]]), self.hyperparams)
+            dist_ = []
+            for unlabeled_batch, _, unlabeled_coord in unlabeled_pool:
+                unlabeled_features = model.predict_batch(unlabeled_batch, self.hyperparams)
+                dist = torch.cdist(last_feature, unlabeled_features)
+                dist_.append(dist)
+
+            dist_ = torch.cat(dist_, dim=1)
+            min_dist = torch.cat((min_dist, dist_), dim=0)
+            min_dist, _ = torch.min(min_dist, dim=0)
+            min_dist = min_dist.view(1, min_dist.shape[0])
+            farthest = torch.argmax(min_dist).item()
             greedy_indices.append(farthest)
 
-        return np.array(greedy_indices, dtype=int), np.max(min_dist)
+        max_dist = torch.max(min_dist) 
+        print("Finished computing greedy solution in {:.1f}s!".format(time.time()-t))
 
-    def get_distance_matrix(self, X, Y):
-        dist_mat = np.matmul(X,Y.transpose())
-        x_norm = np.linalg.norm(X, axis=-1).reshape(-1,1)
-        y_norm = np.linalg.norm(Y, axis=-1).reshape(1,-1)
-        dist_mat = x_norm**2 + y_norm**2 - 2*dist_mat
-        dist_mat = np.clip(dist_mat, 0, 10000)
-        dist_mat = np.sqrt(dist_mat)
-        return dist_mat
+        coords_x = np.array(coords_x)
+        coords_y = np.array(coords_y)
+        coords_x, coords_y = coords_x[greedy_indices], coords_y[greedy_indices]
+        coordinates = np.array(tuple((coords_x, coords_y))).T
+        return coordinates, max_dist
 
-    def get_neighborhood_graph(self, representation, delta):
+    def get_sp_from_img(self, coord):
+        import rasterio
+        import rasterio as rio
+        from rasterio.windows import Window
 
-        graph = {}
-        print(representation.shape)
-        for i in range(0, representation.shape[0], 1000):
+        data = rio.open(self.hyperparams['img_pth'])
+        n_bands = data.count
+        if 'bbl' in data.tags(ns=data.driver):
+            bbl = data.tags(ns=data.driver)['bbl'].replace(' ', '').replace('{', '').replace('}', '').split(',')
+            bbl = np.array(list(map(int, bbl)), dtype=int)
+        else:
+            bbl = np.ones(n_bands, dtype=np.int)
+        bbl_index = tuple(np.where(bbl != 0)[0] + 1)
 
-            if i+1000 > representation.shape[0]:
-                distances = self.get_distance_matrix(representation[i:], representation)
-                amount = representation.shape[0] - i
-            else:
-                distances = self.get_distance_matrix(representation[i:i+1000], representation)
-                amount = 1000
+        img_min, img_max, _ = rasterio.rio.insp.stats(data.read(bbl_index))
+        sp = data.read(bbl_index, window=Window(coord[1], coord[0], 1, 1)).reshape(1, -1)
+        sp = (sp-img_min)/(img_max-img_min)
+        return torch.from_numpy(sp).float()
 
-            distances = np.reshape(distances, (amount, -1))
-            for j in range(i, i+amount):
-                graph[j] = [(idx, distances[j-i, idx]) for idx in np.reshape(np.where(distances[j-i, :] <= delta),(-1))]
+    # def get_neighborhood_graph(self, model, labeled_pool, unlabeled_pool, delta):
+    #     t = time.time()
+    #     graph = {
+    #         'nodes':[], 
+    #         'neighbors': [], 
+    #         'distances': [], 
+    #         'maximum': 0, 
+    #         'minimum': np.inf
+    #         }
+    #     i = 0
+    #     for batch, _, _ in concatenate_loaders(labeled_pool, unlabeled_pool):
+    #         features_1 = model.predict_batch(batch, self.hyperparams)
+    #         dist = []
+    #         for j, (batch_2, _, _) in enumerate(concatenate_loaders(labeled_pool, unlabeled_pool)):
+    #             features_2 = model.predict_batch(batch_2, self.hyperparams)
+    #             dist.append(torch.cdist(features_1, features_2))
 
-        print("Finished Building Graph!")
-        return graph
+    #         dist = torch.cat(dist, dim=1)
+    #         mask = dist <= delta 
+    #         indices = np.where(mask)
+    #         distances = dist[mask]
+    #         graph['nodes'].extend(indices[0])
+    #         graph['neighbors'].extend(indices[1])
+    #         graph['distances'].extend(distances)
+    #         graph['maximum'] = max(graph['maximum'], torch.max(distances).item())
+    #         graph['minimum'] = min(graph['minimum'], torch.min(distances).item())
+            
+    #     print("Finished Building Graph in {:.1f}s!".format(time.time()-t))
+    #     return graph
 
-    def get_graph_max(self, representation, delta):
+    def __call__(self, model, unlabeled_pool, labeled_pool):
+        n_labeled = get_size_loader(labeled_pool)
+        labeled_idx = np.arange(n_labeled)
+        n_unlabeled = get_size_loader(unlabeled_pool)
+        unlabeled_idx = np.arange(n_labeled, n_labeled + n_unlabeled)
+        outlier_count = int((n_labeled+n_unlabeled) * self.outlier_prop)
+        n_total = n_labeled + n_unlabeled
 
-        print("Getting Graph Maximum...")
-
-        maximum = 0
-        for i in range(0, representation.shape[0], 1000):
-            print("At Point " + str(i))
-
-            if i+1000 > representation.shape[0]:
-                distances = self.get_distance_matrix(representation[i:], representation)
-            else:
-                distances = self.get_distance_matrix(representation[i:i+1000], representation)
-
-            distances = np.reshape(distances, (-1))
-            distances[distances > delta] = 0
-            maximum = max(maximum, np.max(distances))
-
-        return maximum
-
-    def get_graph_min(self, representation, delta):
-
-        print("Getting Graph Minimum...")
-
-        minimum = 10000
-        for i in range(0, representation.shape[0], 1000):
-            print("At Point " + str(i))
-
-            if i+1000 > representation.shape[0]:
-                distances = self.get_distance_matrix(representation[i:], representation)
-            else:
-                distances = self.get_distance_matrix(representation[i:i+1000], representation)
-
-            distances = np.reshape(distances, (-1))
-            distances[distances < delta] = 10000
-            minimum = min(minimum, np.min(distances))
-
-        return minimum
-
-    def mip_model(self, representation, labeled_idx, budget, delta, outlier_count, greedy_indices=None):
-
-        model = pywraplp.Solver.CreateSolver('SCIP')
-
-        # set up the variables:
-        points = {}
-        outliers = {}
-        for i in range(representation.shape[0]):
-            if i in labeled_idx:
-                points[i] = model.NumVar(1.0, 1.0, name="points_{}".format(i))
-            else:
-                points[i] = model.BoolVar(name="points_{}".format(i))
-
-            outliers[i] = model.BoolVar(name="outliers_{}".format(i))
-            outliers[i].start = 0
-
-        # initialize the solution to be the greedy solution:
-        if greedy_indices is not None:
-            for i in greedy_indices:
-                points[i].start = 1.0
-
-        # set the outlier budget:
-        model.Add(sum(outliers[i] for i in outliers) <= outlier_count, "budget")
-
-        # build the graph and set the constraints:
-        model.Add(sum(points[i] for i in range(representation.shape[0])) == budget, "budget")
-        neighbors = {}
-        graph = {}
-        print("Updating Neighborhoods In MIP Model...")
-        for i in range(0, representation.shape[0], 1000):
-            print("At Point " + str(i))
-
-            if i+1000 > representation.shape[0]:
-                distances = self.get_distance_matrix(representation[i:], representation)
-                amount = representation.shape[0] - i
-            else:
-                distances = self.get_distance_matrix(representation[i:i+1000], representation)
-                amount = 1000
-
-            distances = np.reshape(distances, (amount, -1))
-            for j in range(i, i+amount):
-                graph[j] = [(idx, distances[j-i, idx]) for idx in np.reshape(np.where(distances[j-i, :] <= delta),(-1))]
-                neighbors[j] = [points[idx] for idx in np.reshape(np.where(distances[j-i, :] <= delta),(-1))]
-                neighbors[j].append(outliers[j])
-                model.Add(sum(neighbors[j]) >= 1, "coverage+outliers")
-
-        return model, graph, points, outliers
-
-
-    def __call__(self, model, pool, train_data):
-        train_representation, _ = train_data
-        labeled_idx = np.arange(train_representation.shape[0])
-        pool_representation, _ =  pool
-        unlabeled_idx = np.arange(train_representation.shape[0], train_representation.shape[0] + pool_representation.shape[0])
-        representation = np.concatenate((train_representation, pool_representation), axis=0)
-        outlier_count = int(representation.shape[0] * self.outlier_prop)
-
-        start_time = time.time()
-
-        train_loader = self.train_loader(train_data)
-        train_representation = self.compute_probs(model, train_loader)
-        pool_loader = self.pool_loader(pool)
-        pool_representation = self.compute_probs(model, pool_loader)
-
-        if self.subsample:
-            subsample_num = int(self.subsample*pool_representation.shape[0])
-            print('Subsampling... {} samples'.format(subsample_num))
-            subsample_idx = np.random.choice(np.arange(pool_representation.shape[0]), subsample_num, replace=False)
-            pool_representation = pool_representation[subsample_idx]
-            unlabeled_idx = np.arange(train_representation.shape[0], train_representation.shape[0] + pool_representation.shape[0])
-
-        representation = np.concatenate((train_representation, pool_representation), axis=0)
-        print('Total number of training samples: {}'.format(train_representation.shape[0]))
-        print('Total number of pool samples: {}'.format(pool_representation.shape[0]))
-
-        t = time.time() - start_time
-        print('Feature extraction done in {}m...'.format(t/60))
-
+        train_representation, _ = self.compute_probs(model, labeled_pool)
         # use the learned representation for the k-greedy-center algorithm:
         print("Calculating Greedy K-Center Solution...")
-        greedy_solution, max_delta = self.greedy_k_center(train_representation, pool_representation, self.n_px)
-        new_indices = unlabeled_idx[greedy_solution]
-        # submipnodes = 20000
-
-        # iteratively solve the MIP optimization problem:
-        eps = 0.01
-        upper_bound = max_delta
-        lower_bound = max_delta / 2.0
-        print("Building MIP Model...")
-        model, graph, points, outliers =\
-         self.mip_model(representation, labeled_idx, len(labeled_idx) + self.n_px, upper_bound, outlier_count, greedy_indices=new_indices)
-        # model.Params.SubMIPNodes = submipnodes
-        model.Solve()
-        indices = [i for i in graph if points[i].solution_value() == 1]
-        current_delta = upper_bound
-        while upper_bound - lower_bound > eps:
-
-            print("upper bound is {ub}, lower bound is {lb}".format(ub=upper_bound, lb=lower_bound))
-            if model.Solve() != pywraplp.Solver.OPTIMAL:
-                print("Optimization Failed - Infeasible!")
-
-                lower_bound = max(current_delta, self.get_graph_min(representation, current_delta))
-                current_delta = (upper_bound + lower_bound) / 2.0
-
-                del model
-                gc.collect()
-                model, graph, points, outliers =\
-                    self.mip_model(representation, labeled_idx, len(labeled_idx) + self.n_px, current_delta, outlier_count, greedy_indices=indices)
-                # model.Params.SubMIPNodes = submipnodes
-
-            else:
-                print("Optimization Succeeded!")
-                upper_bound = min(current_delta, self.get_graph_max(representation, current_delta))
-                current_delta = (upper_bound + lower_bound) / 2.0
-                indices = [i for i in graph if points[i].solution_value() == 1]
-
-                del model
-                gc.collect()
-                model, graph, points, outliers = self.mip_model(representation, labeled_idx, len(labeled_idx) + self.n_px, current_delta, outlier_count, greedy_indices=indices)
-                # model.Params.SubMIPNodes = submipnodes
-
-            if upper_bound - lower_bound > eps:
-                model.Solve()
-
-        if len(indices)>0:
-        #if len(indices) == self.n_px:
-            indices = np.array(indices)
-        else:
-            print('Using greedy solution...')
-            indices = greedy_solution
-
-        indices = indices[indices >= train_representation.shape[0]]
-        indices = indices - train_representation.shape[0]
-        if self.subsample:
-            indices = subsample_idx[indices]
-        return indices
+        greedy_solution, max_delta = self.greedy_k_center(model, train_representation, unlabeled_pool, self.n_px)
+        return greedy_solution
 
 
 

@@ -34,6 +34,8 @@ query_options.add_argument('--M', type=int, help='LAL hyperparams', default=None
 query_options.add_argument('--tau', type=str, help='LAL hyperparams', default=None)
 query_options.add_argument('--outlier_prop', type=float, help='Coreset outliers budget', default=None)
 query_options.add_argument('--beta', type=float, default=None, help='Hierarchical hyperparam')
+query_options.add_argument('--subsample', type=float, default=1., help='Subsample rate of the pool')
+query_options.add_argument('--pool_batch', type=int, default=int(10e4), help='Batch size for the pool')
 
 # Training options
 training_options = parser.add_argument_group('Training')
@@ -62,7 +64,7 @@ config['n_bands']   = dataset.n_bands
 config['ignored_labels'] = dataset.ignored_labels
 config['img_shape'] = dataset.img_shape
 config['res_dir'] = '{}/Results/ActiveLearning/'.format(get_path()) + config['dataset'] + '/' + '/' + config['query']
-
+config['img_pth'] = dataset.img_pth
 
 try:
     os.makedirs(config['res_dir'], exist_ok=True)

@@ -75,7 +75,7 @@ class NeuralNetwork(Classifier):
         self.net.apply(self.net.weight_init)
 
     def train(self, dataset, hyperparams):
-        train_data_loader, val_data_loader = dataset.load_data(dataset.train_gt)
+        train_data_loader, val_data_loader = dataset.load_data(dataset.train_gt, hyperparams['batch_size'])
 
         try:
             for epoch in range(1, hyperparams['epochs']+1):
@@ -153,6 +153,15 @@ class NeuralNetwork(Classifier):
                 self.history['val_loss'][-1], self.history['val_accuracy'][-1], self.history['val_IoU'][-1]))
         except KeyboardInterrupt:
             pass
+
+    def predict_batch(self, batch, hyperparams):
+        self.net.to(hyperparams['device'])
+        self.net.eval()
+        batch = batch.to(hyperparams['device'])
+        with torch.no_grad():
+            probs = self.net(batch).cpu()
+        probs = self.softmax(probs)
+        return probs
 
     def predict_probs(self, data_loader, hyperparams):
         self.net.to(hyperparams['device'])

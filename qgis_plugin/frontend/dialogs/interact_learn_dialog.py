@@ -5,16 +5,19 @@ from .layers_dialog import LayersDialog
 from ..utils import getClasseNameColor
 from qgis.PyQt import QtWidgets, uic
 from qgis.core import QgsProject
+# from processing.gui.RectangleMapTool import RectangleMapTool
+from ..RectangleMapTool import RectangleMapTool
 
 # This loads your .ui file so that PyQt can populate your plugin with the elements from Qt Designer
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(os.path.dirname(__file__)), 'ui/interact_learn.ui'))
 
 class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
-    def __init__(self, parent=None):
+    def __init__(self, iface, parent=None):
         """Constructor."""
         super(InteractLearnDialog, self).__init__(parent)
         self.setModal(True)
+        self.iface = iface
         self.layerData = None
         self.layerLabel = None
         # Set up the user interface from Designer through FORM_CLASS.
@@ -107,6 +110,7 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
         config['lr'] = self.doubleSpinBox_lr.value()
         config['weight_decay'] = self.doubleSpinBox_weight_decay.value()
         config['device'] = 'cpu' if self.comboBox_device.currentText() == 'CPU' else 'cuda'
+        # config['bounding_box'] = 
 
         config['res_dir'] = ('/').join(dataset_param['img_pth'].split('/')[:-1]) + '/'
 

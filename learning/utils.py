@@ -263,3 +263,15 @@ def grouper(n, iterable):
         if not chunk:
             return
         yield chunk
+
+def get_size_loader(loader):
+    i=0
+    for data in loader:
+        i+= data[0].shape[0]
+    return i
+
+def concatenate_loaders(loader_1, loader_2):
+    for data in loader_1:
+        yield data 
+    for data in loader_2:
+        yield data 

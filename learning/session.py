@@ -38,7 +38,7 @@ class ActiveLearningFramework:
             print('Restore history...')
             self.restore()
 
-    def step(self):
+    def step(self, bounding_box=None):
         self.init_step()
         self.model.init_params()
 
@@ -52,14 +52,18 @@ class ActiveLearningFramework:
 
         print('Computing heuristic...')
         start_query_time = time.time()
-        #train_data = self.dataset.train_data
-        train_data = None
 
-        pool = self.dataset.load_data(self.dataset.pool, shuffle=False, split=False)
+        if self.config['subsample'] < 1:
+            # train_data, _ = self.dataset.load_data(self.dataset.train_gt, shuffle=False, split=self.config['subsample'])
+            train_data = self.dataset.load_data(self.dataset.train_gt, self.config['batch_size'], shuffle=False, split=False)
+            pool = self.dataset.subsample_loader(self.dataset.pool, self.config['subsample'], self.config['pool_batch'], bounding_box=bounding_box)
+        else:
+            train_data = self.dataset.load_data(self.dataset.train_gt, self.config['batch_size'], shuffle=False, split=False)
+            pool = self.dataset.load_data(self.dataset.pool, self.config['pool_batch'], shuffle=False, split=False, bounding_box=bounding_box)
 
         self.coordinates = self.query(self.model, pool, train_data) # This is the coordinates of the selected pixels
-        score = self.query.score
-        coords = self.query.coords # This the coordinates of the pool
+        # score = self.query.score
+        # coords = self.query.coords # This the coordinates of the pool
 
         # # To show the score
         # import matplotlib.pyplot as plt 

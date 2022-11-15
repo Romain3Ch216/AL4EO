@@ -3,12 +3,12 @@ from path import get_path
 
 DATASETS_CONFIG = {
     'Demo': {
-        'label_values': ['Unclassified', 'Healthy vegetation', 'Stressed vegetation'],
+        'label_values': ['Unclassified', 'Asphalt', 'Vegetation', 'Water'],
         'sensor': 'FENIX',
         'ignored_labels': [0],
         'palette': None,
-        'img_pth': '{}/data/saouzelong/Demo/demo.tiff'.format(get_path()),
-        'gt_pth': '{}/data/saouzelong/Demo/demo_gt.tiff'.format(get_path())
+        'img_pth': '{}/Datasets/Demo/boulevard_monplaisir.bsq'.format(get_path()),
+        'gt_pth': '{}/Datasets/Demo/asphalt.bsq'.format(get_path())
     },
   }
 
