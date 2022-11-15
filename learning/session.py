@@ -62,8 +62,8 @@ class ActiveLearningFramework:
             pool = self.dataset.load_data(self.dataset.pool, self.config['pool_batch'], shuffle=False, split=False, bounding_box=bounding_box)
 
         self.coordinates = self.query(self.model, pool, train_data) # This is the coordinates of the selected pixels
-        score = self.query.score
-        coords = self.query.coords # This the coordinates of the pool
+        # score = self.query.score
+        # coords = self.query.coords # This the coordinates of the pool
 
         # # To show the score
         # import matplotlib.pyplot as plt 
