@@ -38,7 +38,7 @@ class ActiveLearningFramework:
             print('Restore history...')
             self.restore()
 
-    def step(self, bounding_box):
+    def step(self, bounding_box=None):
         self.init_step()
         self.model.init_params()
 

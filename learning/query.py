@@ -913,6 +913,7 @@ class Coreset(Query):
         # use the learned representation for the k-greedy-center algorithm:
         print("Calculating Greedy K-Center Solution...")
         greedy_solution, max_delta = self.greedy_k_center(train_representation, unlabeled_pool, self.n_px)
+        pdb.set_trace()
         new_indices = unlabeled_idx[greedy_solution]
         # submipnodes = 20000
 

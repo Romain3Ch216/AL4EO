@@ -34,6 +34,7 @@ query_options.add_argument('--M', type=int, help='LAL hyperparams', default=None
 query_options.add_argument('--tau', type=str, help='LAL hyperparams', default=None)
 query_options.add_argument('--outlier_prop', type=float, help='Coreset outliers budget', default=None)
 query_options.add_argument('--beta', type=float, default=None, help='Hierarchical hyperparam')
+query_options.add_argument('--subsample', type=float, default=1., help='Subsample rate of the pool')
 
 # Training options
 training_options = parser.add_argument_group('Training')
