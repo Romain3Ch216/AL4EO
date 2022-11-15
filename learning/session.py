@@ -52,10 +52,14 @@ class ActiveLearningFramework:
 
         print('Computing heuristic...')
         start_query_time = time.time()
-        #train_data = self.dataset.train_data
-        train_data = None
 
-        pool = self.dataset.load_data(self.dataset.pool, shuffle=False, split=False, bounding_box=bounding_box)
+        if self.config['subsample'] < 1:
+            # train_data, _ = self.dataset.load_data(self.dataset.train_gt, shuffle=False, split=self.config['subsample'])
+            train_data = self.dataset.load_data(self.dataset.train_gt, shuffle=False, split=False)
+            pool = self.dataset.subsample_loader(self.dataset.pool, self.config['subsample'], bounding_box=bounding_box)
+        else:
+            train_data = self.dataset.load_data(self.dataset.train_gt, shuffle=False, split=False)
+            pool = self.dataset.load_data(self.dataset.pool, shuffle=False, split=False, bounding_box=bounding_box)
 
         self.coordinates = self.query(self.model, pool, train_data) # This is the coordinates of the selected pixels
         score = self.query.score

@@ -717,6 +717,25 @@ class Coreset(Query):
         self.subsample = hyperparams['subsample']
         self.model_feature = 'cnn'
 
+    def get_sp_from_img(self, coord):
+        import rasterio
+        import rasterio as rio
+        from rasterio.windows import Window
+
+        data = rio.open(self.hyperparams['img_pth'])
+        n_bands = data.count
+        if 'bbl' in data.tags(ns=data.driver):
+            bbl = data.tags(ns=data.driver)['bbl'].replace(' ', '').replace('{', '').replace('}', '').split(',')
+            bbl = np.array(list(map(int, bbl)), dtype=int)
+        else:
+            bbl = np.ones(n_bands, dtype=np.int)
+        bbl_index = tuple(np.where(bbl != 0)[0] + 1)
+
+        img_min, img_max, _ = rasterio.rio.insp.stats(data.read(bbl_index))
+        sp = data.read(bbl_index, window=Window(coord[1], coord[0], 1, 1)).reshape(1, -1)
+        sp = (sp-img_min)/(img_max-img_min)
+        return torch.from_numpy(sp).float()
+
     def greedy_k_center(self, labeled_features, unlabeled_pool, amount):
 
         greedy_indices = []

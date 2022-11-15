@@ -149,6 +149,27 @@ class Dataset:
             loader  = data.DataLoader(data_, batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
             return loader
 
+    def subsample_loader(self, gt, split, bounding_box=None):
+        self.hyperparams['bounding_box'] = bounding_box
+        data_ = GeoHyperX(self.img_pth, gt, self.img_min, self.img_max, True, **self.hyperparams)
+        use_cuda = self.hyperparams['device'] == 'cuda'
+        N = len(data_)
+        
+        #split the indices into two continuous index arrays
+        indices = np.arange(N)
+        
+        split_indice = int(split*N)
+        indices = indices[:split_indice]
+
+        #create Subset Sampler with previous index arrays
+        sampler = SubsetSampler(indices)
+
+        #create DataLoader with previous Subset Sampler
+        loader  = data.DataLoader(data_, sampler=sampler,
+                                  batch_size=self.hyperparams['batch_size'], pin_memory=use_cuda)
+
+        return loader
+
     def data(self, gt):
         mask = gt != 0
         return self.img[mask]
