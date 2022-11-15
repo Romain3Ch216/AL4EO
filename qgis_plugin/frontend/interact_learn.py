@@ -107,9 +107,12 @@ class InteractLearn(core_plugin):
             xsize = self.dlg.layerLabel.rasterUnitsPerPixelX()
             ysize = self.dlg.layerLabel.rasterUnitsPerPixelY()
 
-            start_point = int(((self.rectangle.startPoint.x() - xmin) / xsize)), int(((ymax - self.rectangle.startPoint.y() / ysize)))
-            end_point = int(((self.rectangle.endPoint.x() - xmin) / xsize)), int(((ymax - self.rectangle.endPoint.y() / ysize)))
-            bounding_box = (start_point, end_point)
+            if self.rectangle is None:
+                bounding_box = None 
+            else:
+                start_point = int(((self.rectangle.startPoint.x() - xmin) / xsize)), int(((ymax - self.rectangle.startPoint.y() / ysize)))
+                end_point = int(((self.rectangle.endPoint.x() - xmin) / xsize)), int(((ymax - self.rectangle.endPoint.y() / ysize)))
+                bounding_box = (start_point, end_point)
 
             #get config and dataset parameters from dialog
             config, dataset_param = self.dlg.get_config()

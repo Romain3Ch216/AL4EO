@@ -65,12 +65,20 @@ if __name__ == '__main__':
                 dataset_param = param['dataset_param']
 
                 dataset = Dataset(config, **dataset_param)
+                if config['boundin_box'] is None:
+                    bounding_box = ((0,0), (dataset.img_shape[1], dataset.img_shape[0]))
                 config['n_classes'] = dataset.n_classes
                 config['proportions'] = dataset.proportions
                 config['classes'] = np.unique(dataset.train_gt())[1:]
                 config['n_bands']   = dataset.n_bands
                 config['ignored_labels'] = dataset.ignored_labels
                 config['img_shape'] = dataset.img_shape 
+                config['img_pth'] = dataset.img_pth
+
+                # TMP 
+                config['subsample'] = 1. 
+                config['pool_batch'] = int(10e4)
+
 
                 try:
                     os.makedirs(config['res_dir'], exist_ok=True)
