@@ -50,9 +50,10 @@ Active Learning techniques iteratively query pixels as follows:
 
 <img src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/al_algo.png" alt="active_learning_flowchart" width="700" />
 
-At this time, the qgis plug-in handles two acquisition functions:
+At this time, the qgis plug-in handles three acquisition functions:
  * <a href="https://www.jmlr.org/papers/volume6/luo05a/luo05a.pdf">Breaking Tie<a/>, an inter-class uncertainty heuristic,
- * <a href="https://arxiv.org/abs/1112.5745">BALD<a/>, an epistemic uncertainty heuristic.
+ * <a href="https://arxiv.org/abs/1112.5745">BALD<a/>, an epistemic uncertainty heuristic,
+ * Core-Set, a representativeness heuristic.
 
 See more acquisition functions in [AL4EO/benchmark](https://github.com/Romain3Ch216/AL4EO/tree/benchmark).
 
