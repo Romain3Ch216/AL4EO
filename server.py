@@ -65,7 +65,7 @@ if __name__ == '__main__':
                 dataset_param = param['dataset_param']
 
                 dataset = Dataset(config, **dataset_param)
-                if config['boundin_box'] is None:
+                if config['bounding_box'] is None:
                     bounding_box = ((0,0), (dataset.img_shape[1], dataset.img_shape[0]))
                 config['n_classes'] = dataset.n_classes
                 config['proportions'] = dataset.proportions
@@ -78,6 +78,7 @@ if __name__ == '__main__':
                 # TMP 
                 config['subsample'] = 1. 
                 config['pool_batch'] = int(10e4)
+                config['superpixels'] = None
 
 
                 try:
