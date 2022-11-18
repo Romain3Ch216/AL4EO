@@ -5,6 +5,7 @@ import rasterio as rio
 import rasterio.rio.insp
 from rasterio.warp import reproject, Resampling
 from rasterio.windows import Window
+from skimage.segmentation import slic
 
 class Subset:
     """Generic class for a subset of the dataset"""
@@ -170,6 +171,32 @@ class Dataset:
 
         return loader
 
+    def pool_segmentation_(self, bounding_box, n_segments=5000, compactness=10):
+        data_src = rio.open(self.img_pth)
+        data = data_src.read(self.rgb_bands, 
+                             window=Window.from_slices(
+                                (bounding_box[0][1], bounding_box[1][1]),
+                                (bounding_box[0][0], bounding_box[1][0])
+                                )
+                             )
+        print(data.shape)
+        data = data[:,:,:]
+        data = data.transpose(1, 2, 0)
+        import matplotlib.pyplot as plt 
+        fig = plt.figure()
+        plt.imshow(data)
+        plt.show()
+        mask = self.pool.data[bounding_box[0][1]:bounding_box[1][1], bounding_box[0][0]:bounding_box[1][0]] != 0
+        # mask = np.array(mask, dtype=np.bool).reshape(mask.shape[0], mask.shape[1], 1)
+        # mask = np.concatenate((mask, mask, mask), axis=-1)
+        print(mask.shape)
+        print(data.shape)
+        self.segmentation = slic(data, n_segments=int(n_segments), compactness=int(compactness), mask=mask)
+
+        fig = plt.figure()
+        plt.imshow(self.segmentation)
+        plt.show()
+
     def data(self, gt):
         mask = gt != 0
         return self.img[mask]
@@ -278,6 +305,7 @@ class GeoHyperX(torch.utils.data.Dataset):
         if bounding_box is not None:
             in_box = (x_pos > bounding_box[0][1]) * (y_pos > bounding_box[0][0]) * (x_pos < bounding_box[1][1]) * (y_pos < bounding_box[1][0])
             x_pos, y_pos = x_pos[in_box], y_pos[in_box]
+
 
         #arrange non zero pixels indices by block 
         p = self.patch_size // 2

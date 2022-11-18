@@ -104,6 +104,7 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
 
         config = {}
         config['query'] = self.comboBox_query.currentText()
+        config['superpixels'] = self.comboBox_preprocessing.currentText() == 'SLIC segmentation'
         config['n_px'] = self.spinBox_n_px.value()
         config['epochs'] = self.spinBox_epochs.value()
         config['batch_size'] = self.spinBox_batch_size.value()
