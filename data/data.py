@@ -171,7 +171,7 @@ class Dataset:
 
         return loader
 
-    def pool_segmentation_(self, bounding_box, n_segments=5000, compactness=10):
+    def pool_segmentation_(self, bounding_box, n_segments, compactness):
         data_src = rio.open(self.img_pth)
         data = data_src.read(self.rgb_bands, 
                              window=Window.from_slices(
@@ -179,23 +179,36 @@ class Dataset:
                                 (bounding_box[0][0], bounding_box[1][0])
                                 )
                              )
-        print(data.shape)
         data = data[:,:,:]
         data = data.transpose(1, 2, 0)
-        import matplotlib.pyplot as plt 
-        fig = plt.figure()
-        plt.imshow(data)
-        plt.show()
+        data = (data - self.img_min) / (self.img_max - self.img_min)
         mask = self.pool.data[bounding_box[0][1]:bounding_box[1][1], bounding_box[0][0]:bounding_box[1][0]] != 0
-        # mask = np.array(mask, dtype=np.bool).reshape(mask.shape[0], mask.shape[1], 1)
-        # mask = np.concatenate((mask, mask, mask), axis=-1)
-        print(mask.shape)
-        print(data.shape)
         self.segmentation = slic(data, n_segments=int(n_segments), compactness=int(compactness), mask=mask)
 
+        import matplotlib.pyplot as plt 
         fig = plt.figure()
         plt.imshow(self.segmentation)
         plt.show()
+
+
+    def segmented_dataset(self):
+        clusters = self.segmentation[self.pool.data != 0] 
+        self.cluster_ids = np.unique(clusters)
+        self.spectra = np.zeros((len(self.cluster_ids), self.n_bands))
+        self.mask = np.ones_like(self.cluster_ids).astype(np.bool)
+        for j, cluster_id in enumerate(self.cluster_ids):
+            if (clusters == cluster_id).sum() < min_size:
+                self.mask[list(self.cluster_ids).index(cluster_id)] = False
+            self.spectra[list(self.cluster_ids).index(cluster_id),:] = np.mean(x_pool[clusters==cluster_id], axis=0)
+
+        self.cluster_ids = self.cluster_ids[self.mask]
+        self.spectra = np.array(self.spectra, dtype=np.float32)
+        self.spectra = self.spectra[self.mask]
+        self.mask = self.mask[self.mask]
+        self.clusters = clusters
+
+        # need to extract pixels coordinates within superpixels
+
 
     def data(self, gt):
         mask = gt != 0
