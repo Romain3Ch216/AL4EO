@@ -6,6 +6,8 @@ import rasterio.rio.insp
 from rasterio.warp import reproject, Resampling
 from rasterio.windows import Window
 from skimage.segmentation import slic
+import tables  
+import pdb  
 
 class Subset:
     """Generic class for a subset of the dataset"""
@@ -68,12 +70,18 @@ class Dataset:
 
         #Metadata
         self.img_pth = img_pth 
+        self.segmentation_file = ('/').join(img_pth.split('/')[:-1]) + '/segmentation.h5'
         self.gt_pth = gt_pth
         self.ignored_labels = ignored_labels
         self.label_values   = label_values
         self.n_classes      = len(label_values)
         self.rgb_bands      = rgb_bands     
         self.hyperparams = hyperparams
+
+        data_src = rio.open(self.img_pth)
+        bbl = data_src.tags(ns=data_src.driver)['bbl'].replace(' ', '').replace('{', '').replace('}', '').split(',')
+        bbl = np.array(list(map(int, bbl)), dtype=int)
+        self.bbl_index = tuple(np.where(bbl != 0)[0] + 1)
 
         if img_pth[-4:] == 'tiff':
             type = 'tiff'
@@ -184,30 +192,58 @@ class Dataset:
         data = (data - self.img_min) / (self.img_max - self.img_min)
         mask = self.pool.data[bounding_box[0][1]:bounding_box[1][1], bounding_box[0][0]:bounding_box[1][0]] != 0
         self.segmentation = slic(data, n_segments=int(n_segments), compactness=int(compactness), mask=mask)
+        self.cluster_coordinates = {}
+        for cluster_id in np.unique(self.segmentation):
+            self.cluster_coordinates[cluster_id] = np.where(cluster_id==self.segmentation)
 
         import matplotlib.pyplot as plt 
         fig = plt.figure()
         plt.imshow(self.segmentation)
         plt.show()
 
+    # def segmented_loader(self, batch_size):
+    #     n = len(self.cluster_coordinates)
+    #     for i in range(0, n, batch_size):
+    #         clusters = self.cluster_coordinates[i:min(i+batch_size, n)]
+    #         print(i,min(i+batch_size, n))
+    #         print(len(clusters))
 
     def segmented_dataset(self):
-        clusters = self.segmentation[self.pool.data != 0] 
-        self.cluster_ids = np.unique(clusters)
-        self.spectra = np.zeros((len(self.cluster_ids), self.n_bands))
-        self.mask = np.ones_like(self.cluster_ids).astype(np.bool)
-        for j, cluster_id in enumerate(self.cluster_ids):
-            if (clusters == cluster_id).sum() < min_size:
-                self.mask[list(self.cluster_ids).index(cluster_id)] = False
-            self.spectra[list(self.cluster_ids).index(cluster_id),:] = np.mean(x_pool[clusters==cluster_id], axis=0)
+        # self.mask = np.ones_like(self.cluster_ids).astype(np.bool)
+        data_src = rio.open(self.img_pth)
+        filename = self.segmentation_file
+        ROW_SIZE, NUM_COLUMNS = len(self.cluster_coordinates), self.n_bands
+        f = tables.open_file(filename, mode='w')
+        atom = tables.Float32Atom()
+        self.spectra = f.create_earray(f.root, 'data', atom, (0,NUM_COLUMNS))
 
-        self.cluster_ids = self.cluster_ids[self.mask]
-        self.spectra = np.array(self.spectra, dtype=np.float32)
-        self.spectra = self.spectra[self.mask]
-        self.mask = self.mask[self.mask]
-        self.clusters = clusters
+        for cluster_id, coordinates in self.cluster_coordinates.items():
+            if cluster_id > 0:
+                
 
-        # need to extract pixels coordinates within superpixels
+                import matplotlib.pyplot as plt 
+
+                min_row, max_row = np.min(coordinates[0]), np.max(coordinates[0])
+                min_col, max_col = np.min(coordinates[1]), np.max(coordinates[1])
+
+                A = np.zeros_like(self.segmentation)
+                A[min_row:max_row+1, min_col:max_col+1] = 1
+                plt.imshow(A)
+                plt.show()
+
+                data = data_src.read(self.bbl_index, 
+                                    window=Window.from_slices(
+                                    (min_col, max_col+1),
+                                    (min_row, max_row+1)
+                                    )
+                                 )
+
+                data = data.transpose(2,1,0)
+                coordinates = tuple((coordinates[0]-min_row, coordinates[1]-min_col))
+                self.spectra.append(np.mean(data[coordinates], axis=0).reshape(1,-1))
+
+        f.close()
+
 
 
     def data(self, gt):

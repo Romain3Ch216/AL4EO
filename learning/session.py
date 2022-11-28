@@ -54,7 +54,8 @@ class ActiveLearningFramework:
         start_query_time = time.time()
 
         if self.config['superpixels']:
-            self.dataset.pool_segmentation_(bounding_box)
+            self.dataset.pool_segmentation_(bounding_box, n_segments=self.config['n_segments'], compactness=self.config['compactness'])
+            self.dataset.segmented_dataset()
 
         if self.config['subsample'] < 1:
             # train_data, _ = self.dataset.load_data(self.dataset.train_gt, shuffle=False, split=self.config['subsample'])
