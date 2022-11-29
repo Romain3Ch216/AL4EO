@@ -134,7 +134,7 @@ def createHistoryLayer(name, coordinates, gt_pth):
   
     for point in coordinates:
         point = point.astype(np.float64)
-        pointXY = gdal.ApplyGeoTransform(transform, point[0], point[1])
+        pointXY = gdal.ApplyGeoTransform(transform, point[1]+0.5, point[0]+0.5)
         fet = QgsFeature()
         fet.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(pointXY[0], pointXY[1])))
         pr.addFeatures([ fet ])

@@ -56,7 +56,7 @@ class ActiveLearningFramework:
         if self.config['superpixels']:
             self.dataset.pool_segmentation_(bounding_box, n_segments=self.config['n_segments'], compactness=self.config['compactness'])
             train_data = self.dataset.load_data(self.dataset.train_gt, self.config['batch_size'], shuffle=False, split=False)
-            pool = self.dataset.superpixels_loader()
+            pool = self.dataset.superpixels_loader(bounding_box=bounding_box)
         elif self.config['subsample'] < 1:
             # train_data, _ = self.dataset.load_data(self.dataset.train_gt, shuffle=False, split=self.config['subsample'])
             train_data = self.dataset.load_data(self.dataset.train_gt, self.config['batch_size'], shuffle=False, split=False)

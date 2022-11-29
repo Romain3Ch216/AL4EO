@@ -213,8 +213,11 @@
          <property name="minimum">
           <number>1</number>
          </property>
+         <property name="maximum">
+          <number>5000</number>
+         </property>
          <property name="value">
-          <number>10</number>
+          <number>100</number>
          </property>
         </widget>
        </item>
@@ -229,6 +232,12 @@
         <widget class="QSpinBox" name="spinBox_epochs">
          <property name="minimum">
           <number>1</number>
+         </property>
+         <property name="maximum">
+          <number>500</number>
+         </property>
+         <property name="value">
+          <number>100</number>
          </property>
         </widget>
        </item>
@@ -314,10 +323,27 @@
         </widget>
        </item>
        <item row="7" column="1">
-        <widget class="QSpinBox" name="spinBox_n_superpixels"/>
+        <widget class="QSpinBox" name="spinBox_n_superpixels">
+         <property name="maximumSize">
+          <size>
+           <width>115</width>
+           <height>26</height>
+          </size>
+         </property>
+         <property name="maximum">
+          <number>1000000</number>
+         </property>
+         <property name="value">
+          <number>1000</number>
+         </property>
+        </widget>
        </item>
        <item row="8" column="1">
-        <widget class="QSpinBox" name="spinBox_compactness"/>
+        <widget class="QSpinBox" name="spinBox_compactness">
+         <property name="value">
+          <number>10</number>
+         </property>
+        </widget>
        </item>
        <item row="7" column="0">
         <widget class="QLabel" name="label">
