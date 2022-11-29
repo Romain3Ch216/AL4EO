@@ -6,7 +6,6 @@ import rasterio.rio.insp
 from rasterio.warp import reproject, Resampling
 from rasterio.windows import Window
 from skimage.segmentation import slic
-import tables  
 import pdb  
 
 class Subset:
@@ -69,13 +68,13 @@ class Dataset:
         """
 
         #Metadata
-        self.img_pth = img_pth 
+        self.img_pth = img_pth
         self.segmentation_file = ('/').join(img_pth.split('/')[:-1]) + '/segmentation.tif'
         self.gt_pth = gt_pth
         self.ignored_labels = ignored_labels
         self.label_values   = label_values
         self.n_classes      = len(label_values)
-        self.rgb_bands      = rgb_bands     
+        self.rgb_bands      = rgb_bands
         self.hyperparams = hyperparams
 
         data_src = rio.open(self.img_pth)
@@ -97,8 +96,8 @@ class Dataset:
             raise NotImplementedError("Only .tiff file format is accepted.")
 
 
-    #Load geo tiff gt image and image data metadata and reproject gt 
-    def load_geo_ref_img(self, img_pth, gt_pth): 
+    #Load geo tiff gt image and image data metadata and reproject gt
+    def load_geo_ref_img(self, img_pth, gt_pth):
         #load metadata of image data (bad bands, n_bands, shape, min, max...)
         with rio.open(img_pth) as src:
             bbl = src.tags(ns=src.driver)['bbl'].replace(' ', '').replace('{', '').replace('}', '').split(',')
@@ -110,7 +109,7 @@ class Dataset:
             img_crs = src.crs
             self.img_min, self.img_max, _ = rasterio.rio.insp.stats(src.read(bbl))
 
-        #load gt image in memory and reproject it to the same shape as image data 
+        #load gt image in memory and reproject it to the same shape as image data
 
         with rio.open(gt_pth) as src:
             if src.transform == img_transform and src.crs == img_crs and src.height == self.img_shape[0] and src.width == self.img_shape[1]:
@@ -127,9 +126,9 @@ class Dataset:
                     resampling=Resampling.nearest)
             self.train_gt = TrainGt(gt)
 
-        mask = self.train_gt.data == 0 
+        mask = self.train_gt.data == 0
         self.pool = Pool(mask)
-            
+
 
     #Create dataloader for geo referenced image, if shuffle == True, indice are shuffled in the HyperHdrX class
     def load_data(self, gt, batch_size, split=True, shuffle=True, bounding_box=None):
@@ -163,10 +162,10 @@ class Dataset:
         data_ = GeoHyperX(self.img_pth, gt, self.img_min, self.img_max, True, **self.hyperparams)
         use_cuda = self.hyperparams['device'] == 'cuda'
         N = len(data_)
-        
+
         #split the indices into two continuous index arrays
         indices = np.arange(N)
-        
+
         split_indice = int(split*N)
         indices = indices[:split_indice]
 
@@ -181,7 +180,7 @@ class Dataset:
 
     def pool_segmentation_(self, bounding_box, n_segments, compactness):
         data_src = rio.open(self.img_pth)
-        data = data_src.read(self.rgb_bands, 
+        data = data_src.read(self.rgb_bands,
                              window=Window.from_slices(
                                 (bounding_box[0][1], bounding_box[1][1]),
                                 (bounding_box[0][0], bounding_box[1][0])
@@ -200,15 +199,15 @@ class Dataset:
                 #tuple((coords[0]+bounding_box[0][1], coords[1]+bounding_box[0][0]))
 
         gt = rio.open(self.gt_pth)
-        profile = gt.profile 
+        profile = gt.profile
         with rasterio.open(self.segmentation_file, 'w', **profile) as dst:
-            dst.write(self.segmentation.astype(rasterio.uint8), 1, 
+            dst.write(self.segmentation.astype(rasterio.uint8), 1,
                       window=Window.from_slices(
                             (bounding_box[0][1], bounding_box[1][1]),
                             (bounding_box[0][0], bounding_box[1][0])
                             ))
 
-        # import matplotlib.pyplot as plt 
+        # import matplotlib.pyplot as plt
         # fig = plt.figure()
         # plt.imshow(self.segmentation)
         # plt.show()
@@ -259,19 +258,19 @@ class Dataset:
             if class_id != 0:
                 prop[class_id-1] = round(np.sum(self.train_gt.data == class_id) / n *100, 1)
         return prop
-        
+
 
 class SuperpixelsLoader:
     def __init__(self, dataset, bounding_box, batch_size):
-        self.data_pth = dataset.img_pth 
-        self.cluster_coordinates = dataset.cluster_coordinates 
+        self.data_pth = dataset.img_pth
+        self.cluster_coordinates = dataset.cluster_coordinates
         self.n_bands = dataset.n_bands
         self.bbl_index = dataset.bbl_index
         self.batch_size = batch_size
         self.data_src = rio.open(self.data_pth)
         self.dataset = dataset
         self.bounding_box = bounding_box
-    
+
     def __len__(self):
         return len(self.cluster_coordinates)//self.batch_size
 
@@ -293,7 +292,7 @@ class SuperpixelsLoader:
 
             # print(i,min(i+self.batch_size, ROW_SIZE))
 
-            data = self.data_src.read(self.bbl_index, 
+            data = self.data_src.read(self.bbl_index,
                                 window=Window.from_slices(
                                 (min_row+self.bounding_box[0][1], max_row+self.bounding_box[0][1]+1),
                                 (min_col+self.bounding_box[0][0], max_col+self.bounding_box[0][0]+1)
@@ -302,8 +301,8 @@ class SuperpixelsLoader:
             data = (data - self.dataset.img_min) / (self.dataset.img_max - self.dataset.img_min)
             data = data.transpose(1,2,0)
             # print(data.shape)
-            
-            # import matplotlib.pyplot as plt 
+
+            # import matplotlib.pyplot as plt
             # A = np.zeros_like(self.dataset.segmentation)
             # A[min_row-self.bounding_box[0][1]:max_row-self.bounding_box[0][1]+1, min_col-self.bounding_box[0][0]:max_col-self.bounding_box[0][0]+1] = 1
             # fig, ax = plt.subplots(1,2)
@@ -317,9 +316,9 @@ class SuperpixelsLoader:
 
             coordx, coordy = np.zeros((min(self.batch_size, ROW_SIZE-i))), np.zeros((min(self.batch_size, ROW_SIZE-i)))
             for j in range(i, min(i+self.batch_size, ROW_SIZE)):
-                cluster_id = j  
+                cluster_id = j
                 coordinates = self.cluster_coordinates[cluster_id]
-                random_ind = np.random.randint(len(coordinates[0])) 
+                random_ind = np.random.randint(len(coordinates[0]))
                 # print(coordinates[0][random_ind], coordinates[1][random_ind])
 
                 coordx[j-i] = coordinates[0][random_ind]+self.bounding_box[0][1]
@@ -329,7 +328,7 @@ class SuperpixelsLoader:
                 sp =  torch.from_numpy(np.mean(data[coordinates], axis=0).reshape(1,-1))
                 spectra[j-i,:] = sp
 
-                # import matplotlib.pyplot as plt 
+                # import matplotlib.pyplot as plt
                 # fig, ax = plt.subplots(1,2)
                 # A = np.zeros_like(self.dataset.segmentation)
                 # A[self.cluster_coordinates[cluster_id]] = 1
@@ -349,7 +348,7 @@ class SubsetSampler(data.Sampler):
         return (i for i in self.indices)
 
     def __len__(self):
-        return len(self.indices)    
+        return len(self.indices)
 
 
 class GeoHyperX(torch.utils.data.Dataset):
@@ -380,7 +379,7 @@ class GeoHyperX(torch.utils.data.Dataset):
 
         #open image data file
         self.data_src = rio.open(data_pth)
-        
+
         #Get bad bands
         bbl = self.data_src.tags(ns=self.data_src.driver)['bbl'].replace(' ', '').replace('{', '').replace('}', '').split(',')
         bbl = np.array(list(map(int, bbl)), dtype=int)
@@ -410,7 +409,7 @@ class GeoHyperX(torch.utils.data.Dataset):
             x_pos, y_pos = x_pos[in_box], y_pos[in_box]
 
 
-        #arrange non zero pixels indices by block 
+        #arrange non zero pixels indices by block
         p = self.patch_size // 2
         self.indices = [[] for _ in range(block_hw[0]*block_hw[1])]
         for x, y in zip(x_pos, y_pos):
@@ -421,7 +420,7 @@ class GeoHyperX(torch.utils.data.Dataset):
             block_indice = block_indice_x*block_hw[1] + block_indice_y
             block_slice = self.blocks_slices[block_indice]
             if p > 0:
-                if (x > p + block_slice[0][0] and x < block_slice[0][1] - p and 
+                if (x > p + block_slice[0][0] and x < block_slice[0][1] - p and
                 y > p + block_slice[1][0] and y < block_slice[1][1] - p and self.label[x, y] != 0):
                     self.indices[block_indice].append((x, y))
             else:
@@ -448,7 +447,7 @@ class GeoHyperX(torch.utils.data.Dataset):
         return sum([len(self.indices[i]) for i in range(len(self.indices))])
 
     def __getitem__(self, i):
-        
+
         if i == 0:
             if self.shuffle:
                 #shuffle pixels in each blocks and shuffle blocks
@@ -472,7 +471,7 @@ class GeoHyperX(torch.utils.data.Dataset):
                 self.len_last = self.len_curr
                 self.len_curr += len(self.indices[self.block_index])
 
-        #get pixel coord based on i 
+        #get pixel coord based on i
         x, y = self.indices[self.block_index][i-self.len_last]
         coord = [x,y]
         x1, y1 = x - self.patch_size // 2, y - self.patch_size // 2
@@ -481,7 +480,7 @@ class GeoHyperX(torch.utils.data.Dataset):
         #get label
         label = self.label[x1:x2, y1:y2]
 
-        #convert pixel coord to block index 
+        #convert pixel coord to block index
         x1, x2 = x1 - self.blocks_slices[self.block_index][0][0], x2 - self.blocks_slices[self.block_index][0][0]
         y1, y2 = y1 - self.blocks_slices[self.block_index][1][0], y2 - self.blocks_slices[self.block_index][1][0]
 
@@ -511,4 +510,3 @@ class GeoHyperX(torch.utils.data.Dataset):
             data = data.unsqueeze(0)
 
         return data, label, coord
-
