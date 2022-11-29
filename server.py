@@ -56,11 +56,11 @@ if __name__ == '__main__':
             server.waitConnection()
 
             #recv data pickle
-            data_pkl = server.recv()
+            data = server.recv()
 
-            if data_pkl:
+            if data:
                 #load data pickle and get dataset config and parameters   
-                param = pickle.loads(data_pkl)
+                param = pickle.loads(data)
                 config = param['config']
                 dataset_param = param['dataset_param']
 
@@ -78,8 +78,6 @@ if __name__ == '__main__':
                 # TMP 
                 config['subsample'] = 1. 
                 config['pool_batch'] = int(10e4)
-                config['superpixels'] = None
-
 
                 try:
                     os.makedirs(config['res_dir'], exist_ok=True)
@@ -100,6 +98,8 @@ if __name__ == '__main__':
 
                 #send history path pickle
                 server.send(path_pkl) 
+
+
 
     except KeyboardInterrupt:
         server.close()  

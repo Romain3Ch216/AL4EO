@@ -85,7 +85,6 @@ class InteractLearn(core_plugin):
             self.rectangle = RectangleMapTool(self.iface.mapCanvas())
         self.iface.mapCanvas().setMapTool(self.rectangle)
 
-
     
     #run interactive learning dialog for selecting data layer, label layer and query config
     def runIlearnDialog(self):
@@ -110,14 +109,18 @@ class InteractLearn(core_plugin):
             if self.rectangle is None:
                 bounding_box = None 
             else:
+                # start_point = int(((self.rectangle.startPoint.x() - xmin) / xsize)), int(((ymax - self.rectangle.startPoint.y() / ysize)))
+                # end_point = int(((self.rectangle.endPoint.x() - xmin) / xsize)), int(((ymax - self.rectangle.endPoint.y() / ysize)))
+
                 start_point = int(((self.rectangle.startPoint.x() - xmin) / xsize)), int(((ymax - self.rectangle.startPoint.y() / ysize)))
                 end_point = int(((self.rectangle.endPoint.x() - xmin) / xsize)), int(((ymax - self.rectangle.endPoint.y() / ysize)))
+
                 bounding_box = (start_point, end_point)
 
             #get config and dataset parameters from dialog
             config, dataset_param = self.dlg.get_config()
             config['bounding_box'] = bounding_box
-            self.param = {'config' : config, 'dataset_param' : dataset_param}
+            self.param = {'name': 'query', 'config' : config, 'dataset_param' : dataset_param}
 
             #set data layer RGB bands from dialog values
             setLayerRGB(self.dlg.layerData, self.dlg.spinBox_R.value(), self.dlg.spinBox_G.value(), self.dlg.spinBox_B.value())
@@ -183,6 +186,3 @@ class InteractLearn(core_plugin):
 
         if history_path_pkl:
             return pickle.loads(history_path_pkl)
-            
-
-            
