@@ -6,7 +6,6 @@ import rasterio.rio.insp
 from rasterio.warp import reproject, Resampling
 from rasterio.windows import Window
 from skimage.segmentation import slic
-import tables  
 import pdb  
 
 class Subset:
