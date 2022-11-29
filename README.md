@@ -7,7 +7,7 @@
 
 <p align="center">
   <img alt="GitHub" src="https://img.shields.io/github/license/Romain3Ch216/AL4EO?color=brightgreen">
-  <img alt="Github" src="https://img.shields.io/badge/version-beta-9cf">
+  <img alt="Github" src="https://img.shields.io/badge/version-0.1-9cf">
 </p>
 
 # AL4EO
