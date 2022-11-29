@@ -194,56 +194,56 @@ class Dataset:
         self.segmentation = slic(data, n_segments=int(n_segments), compactness=int(compactness), mask=mask)
         self.cluster_coordinates = {}
         for cluster_id in np.unique(self.segmentation):
-            self.cluster_coordinates[cluster_id] = np.where(cluster_id==self.segmentation)
+            if cluster_id > 0:
+                self.cluster_coordinates[cluster_id] = np.where(cluster_id==self.segmentation)
 
         import matplotlib.pyplot as plt 
         fig = plt.figure()
         plt.imshow(self.segmentation)
         plt.show()
 
-    # def segmented_loader(self, batch_size):
-    #     n = len(self.cluster_coordinates)
-    #     for i in range(0, n, batch_size):
-    #         clusters = self.cluster_coordinates[i:min(i+batch_size, n)]
-    #         print(i,min(i+batch_size, n))
-    #         print(len(clusters))
-
-    def segmented_dataset(self):
-        # self.mask = np.ones_like(self.cluster_ids).astype(np.bool)
+    def superpixels_loader(self, batch_size=10):
         data_src = rio.open(self.img_pth)
-        filename = self.segmentation_file
         ROW_SIZE, NUM_COLUMNS = len(self.cluster_coordinates), self.n_bands
-        f = tables.open_file(filename, mode='w')
-        atom = tables.Float32Atom()
-        self.spectra = f.create_earray(f.root, 'data', atom, (0,NUM_COLUMNS))
+        coordx, coordy = [], []
+        for i in range(1, ROW_SIZE+1, batch_size):
+            spectra = torch.zeros((min(batch_size, ROW_SIZE-i), NUM_COLUMNS))
 
-        for cluster_id, coordinates in self.cluster_coordinates.items():
-            if cluster_id > 0:
-                
+            for j in range(i, min(i+batch_size, ROW_SIZE)):
+                coordx.extend(list(self.cluster_coordinates[j][0]))
+                coordy.extend(list(self.cluster_coordinates[j][1]))
+            min_row, max_row = min(coordx), max(coordx)
+            min_col, max_col = min(coordy), max(coordy)
 
-                import matplotlib.pyplot as plt 
+            # print(i,min(i+batch_size, ROW_SIZE))
 
-                min_row, max_row = np.min(coordinates[0]), np.max(coordinates[0])
-                min_col, max_col = np.min(coordinates[1]), np.max(coordinates[1])
+            data = data_src.read(self.bbl_index, 
+                                window=Window.from_slices(
+                                (min_col, max_col+1),
+                                (min_row, max_row+1)
+                                )
+                             )
+            data = data.transpose(2,1,0)
+            
+            # import matplotlib.pyplot as plt 
+            # A = np.zeros_like(self.segmentation)
+            # A[min_row:max_row+1, min_col:max_col+1] = 1
+            # fig = plt.figure()
+            # plt.imshow(A)
+            # plt.show()
 
-                A = np.zeros_like(self.segmentation)
-                A[min_row:max_row+1, min_col:max_col+1] = 1
-                plt.imshow(A)
-                plt.show()
-
-                data = data_src.read(self.bbl_index, 
-                                    window=Window.from_slices(
-                                    (min_col, max_col+1),
-                                    (min_row, max_row+1)
-                                    )
-                                 )
-
-                data = data.transpose(2,1,0)
+            coordx, coordy = np.zeros((min(batch_size, ROW_SIZE-i), min(batch_size, ROW_SIZE-i)))
+            for j in range(i, min(i+batch_size, ROW_SIZE)):
+                cluster_id = j  
+                coordinates = self.cluster_coordinates[cluster_id]
+                random_ind = np.random.randint(len(coordinates[0])) 
+                coordx[j-i] = coordinates[0][random_ind]
+                coordy[j-i] = coordinates[1][random_ind]
                 coordinates = tuple((coordinates[0]-min_row, coordinates[1]-min_col))
-                self.spectra.append(np.mean(data[coordinates], axis=0).reshape(1,-1))
+                spectra[j-i,:] = torch.from_numpy(np.mean(data[coordinates], axis=0).reshape(1,-1))
 
-        f.close()
-
+            coords = tuple((coordx, coordy))
+            yield spectra, None, coords
 
 
     def data(self, gt):
