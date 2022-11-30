@@ -101,13 +101,11 @@ In QGIS,
      * the layers on which you run the query, the acquisition function, various hyperparameters and whether to use the preprocessing step introduced <a href="https://www.int-arch-photogramm-remote-sens-spatial-inf-sci.net/XLIII-B3-2022/435/2022/" target="_blank">here</a>.
   * the red rectangle within block 1 in the overhead picture allows to select a specific geographic zone. Only pixels from this zone will be queried.
   * Once the query is completed (see progress in the terminal), a history layer pops up (see the top of block 2 in the overhead picture). Red points indicate pixels to be labeled.
-  * Block 3 pops up after the query is completed: <br>
+  * Block 3 pops up after the query is completed: 
     * Select a class with the dropdown menu "A" (the "Untitled" class allows to remove wrong labels),
-    * Select a selection option with the dropdown menu "B": <br>
+    * Select a selection option with the dropdown menu "B": 
        * select pixels one by one,
        * or select polygons (one click saves one edge while double click closes the polygon),
-      </br>
-    </br>
   * **click** on the "Annotation" button "C" below the dropdown menus to start labeling.
   * To add a class, fill the empty box "D" with the class name, choose a color with the menu "E" and click on the button "F" to confirm
   
