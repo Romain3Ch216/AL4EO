@@ -106,8 +106,8 @@ In QGIS,
     * Select a selection option with the dropdown menu "B": <br>
        * select pixels one by one,
        * or select polygons (one click saves one edge while double click closes the polygon),
+       </br>
     </br>
-  </br>
   * **click** on the "Annotation" button "C" below the dropdown menus to start labeling.
   * To add a class, fill the empty box "D" with the class name, choose a color with the menu "E" and click on the button "F" to confirm
   
