@@ -14,7 +14,7 @@
 
 AL4EO/qgis-plugin is a <a href="https://www.qgis.org/fr/site/"> QGIS </a> plug-in to run Active Learning techniques on Earth observation data. <br/>  
 The goal of Active Learning is to interactively build optimal training data sets for supervised learning.
-For further details on Active Learning for remote sensing data, see our comparative review <a href="https://ieeexplore.ieee.org/document/9774342">here</a>.
+For further details on Active Learning for remote sensing data, see our comparative review <a href="https://ieeexplore.ieee.org/document/9774342" target="_blank">here</a>.
 
 To run benchmark experiments, see the [benchmark](https://github.com/Romain3Ch216/AL4EO/tree/benchmark) branch of this repository. 
 
@@ -98,7 +98,7 @@ Launch the backend in your AL4EO conda virtual environment with the following co
 
 In QGIS, 
   * the `Q` button within block 1 in the overhead picture opens a window where you can select:<br>
-     * the layers on which you run the query, the acquisition function, various hyperparameters and whether to use the preprocessing step introduced in [1].
+     * the layers on which you run the query, the acquisition function, various hyperparameters and whether to use the preprocessing step introduced <a href="https://www.int-arch-photogramm-remote-sens-spatial-inf-sci.net/XLIII-B3-2022/435/2022/" target="_blank">here</a>.
   * the red rectangle within block 1 in the overhead picture allows to select a specific geographic zone. Only pixels from this zone will be queried.
   * Once the query is completed (see progress in the terminal), a history layer pops up (see the top of block 2 in the overhead picture). Red points indicate pixels to be labeled.
   * Block 3 pops up after the query is completed: <br>
@@ -107,9 +107,10 @@ In QGIS,
        * select pixels one by one,
        * or select polygons (one click saves one edge while double click closes the polygon),
     </br>
-    * **click** on the "Annotation" button "C" below the dropdown menus to start labeling.
-    * To add a class, fill the empty box "D" with the class name, choose a color with the menu "E" and click on the button "F" to confirm
   </br>
+  * **click** on the "Annotation" button "C" below the dropdown menus to start labeling.
+  * To add a class, fill the empty box "D" with the class name, choose a color with the menu "E" and click on the button "F" to confirm
+  
 ## Reference
 
 This toolbox was used for our review paper in IEEE Geoscience and Remote Sensing Magazine:
