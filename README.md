@@ -18,7 +18,7 @@ For further details on Active Learning for remote sensing data, see our comparat
 
 To run benchmark experiments, see the [benchmark](https://github.com/Romain3Ch216/AL4EO/tree/benchmark) branch of this repository. 
 
-*Despite our constant efforts to improve the user experience, AL4EO can still be tricky to use. Feel free to open an issue on Github or directly send us an email at* <a href="mailto:romain.thoreau@onera.fr;" target="_blank">romain.thoreau@onera.fr</a>.
+*Despite our constant efforts to improve the user experience, AL4EO can still be tricky to use. Feel free to open an issue on Github or directly send us an email at <a href="mailto:romain.thoreau@onera.fr;" target="_blank">romain.thoreau@onera.fr</a>.*
 
 ## Requirements
 
