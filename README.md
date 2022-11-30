@@ -13,8 +13,11 @@
 # AL4EO
 
 AL4EO/qgis-plugin is a <a href="https://www.qgis.org/fr/site/"> QGIS </a> plug-in to run Active Learning techniques on Earth observation data. <br/>  
-The goal of Active Learning is to interactively and iteratively build optimal training data sets for supervised learning.
-For further details on Active Learning for remote sensing data, see our comparative review <a href="https://ieeexplore.ieee.org/document/9774342" target="_blank">here</a>.
+
+The goal of Active Learning is to interactively and iteratively build optimal training data sets for supervised learning. <br/>
+For further details on Active Learning for remote sensing data, see our comparative review <a href="https://ieeexplore.ieee.org/document/9774342" target="_blank">here</a> for which we used AL4EO.
+
+If you use AL4EO as part of a published research project, please see the Reference section below to cite our paper.
 
 To run benchmark experiments, see the [benchmark](https://github.com/Romain3Ch216/AL4EO/tree/benchmark) branch of this repository. 
 
@@ -123,4 +126,21 @@ title={Active Learning for Hyperspectral Image Classification: A Comparative Rev
 year={2022},    
 pages={2-24},  
 doi={10.1109/MGRS.2022.3169947}}
+```
+  
+If you use the preprocessing method implemented in AL4EO as part as your work, please cite the following paper: 
+
+> Thoreau, R., Achard, V., Risser, L., Berthelot, B., and Briottet, X.: ACTIVE LEARNING ON LARGE HYPERSPECTRAL DATASETS: A PREPROCESSING METHOD, Int. Arch. Photogramm. Remote Sens. Spatial Inf. Sci., XLIII-B3-2022, 435–442, https://doi.org/10.5194/isprs-archives-XLIII-B3-2022-435-2022, 2022
+
+```
+@Article{isprs-archives-XLIII-B3-2022-435-2022,
+AUTHOR = {Thoreau, R. and Achard, V. and Risser, L. and Berthelot, B. and Briottet, X.},
+TITLE = {ACTIVE LEARNING ON LARGE HYPERSPECTRAL DATASETS: A PREPROCESSING METHOD},
+JOURNAL = {The International Archives of the Photogrammetry, Remote Sensing and Spatial Information Sciences},
+VOLUME = {XLIII-B3-2022},
+YEAR = {2022},
+PAGES = {435--442},
+URL = {https://www.int-arch-photogramm-remote-sens-spatial-inf-sci.net/XLIII-B3-2022/435/2022/},
+DOI = {10.5194/isprs-archives-XLIII-B3-2022-435-2022}
+}
 ```
