@@ -102,7 +102,7 @@ In QGIS,
 
 This toolbox was used for our review paper in IEEE Geoscience and Remote Sensing Magazine:
 
-> R. Thoreau, V. ACHARD, L. Risser, B. Berthelot and X. BRIOTTET, "Active Learning for Hyperspectral Image Classification: A Comparative Review," in IEEE Geoscience and Remote Sensing Magazine, doi: 10.1109/MGRS.2022.3169947.
+> R. Thoreau, V. Achard, L. Risser, B. Berthelot and X. Briottet, "Active Learning for Hyperspectral Image Classification: A Comparative Review," in IEEE Geoscience and Remote Sensing Magazine, doi: 10.1109/MGRS.2022.3169947.
   
 ```
 @ARTICLE{9774342,  
