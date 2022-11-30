@@ -128,7 +128,7 @@ pages={2-24},
 doi={10.1109/MGRS.2022.3169947}}
 ```
   
-If you use the preprocessing method implemented in AL4EO as part as your work, please cite the following paper: 
+If you use the preprocessing method implemented in AL4EO as part of your work, please cite the following paper: 
 
 > Thoreau, R., Achard, V., Risser, L., Berthelot, B., and Briottet, X.: ACTIVE LEARNING ON LARGE HYPERSPECTRAL DATASETS: A PREPROCESSING METHOD, Int. Arch. Photogramm. Remote Sens. Spatial Inf. Sci., XLIII-B3-2022, 435–442, https://doi.org/10.5194/isprs-archives-XLIII-B3-2022-435-2022, 2022
 
