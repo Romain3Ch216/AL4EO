@@ -89,13 +89,25 @@ class names = {Vegetation Buildings}
 Launch the backend in your AL4EO conda virtual environment with the following command line:
   `python -m server` 
   
-In QGIS, 
-  * Click on the `Q` button to start a query,
-  * Select your acquisition function and the various hyperparameters,
-  * When the query is completed (see progress in the terminal), queried pixels are showed by red points,
-  * In the annotation window, select or add a class, enable the annotation by clicking on the cell below and label the pixels with the mouse left click,
-  * Start over.
+<p align="center">
+  <img alt="demo" src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/demo.pdf" width="800">
+</p>
 
+
+In QGIS, 
+  * the `Q` button within block 1 in the overhead picture opens a window where you can select:<br>
+     * the layers on which you run the query, the acquisition function, various hyperparameters and whether to use the preprocessing step introduced in [1].
+  * the red rectangle within block 1 in the overhead picture allows to select a specific geographic zone. Only pixels from this zone will be queried.
+  * Once the query is completed (see progress in the terminal), a history layer pops up (see the top of block 2 in the overhead picture). Red points indicate pixels to be labeled.
+  * Block 3 pops up after the query is completed: <br>
+    * Select a class with the dropdown menu "A" (the "Untitled" class allows to remove wrong labels),
+    * Select a selection option with the dropdown menu "B": <br>
+       * select pixels one by one,
+       * or select polygons (one click saves one edge while double click closes the polygon),
+    </br>
+    * **click** on the "Annotation" button "C" below the dropdown menus to start labeling.
+    * To add a class, fill the empty box "D" with the class name, choose a color with the menu "E" and click on the button "F" to confirm
+  </br>
 ## Reference
 
 This toolbox was used for our review paper in IEEE Geoscience and Remote Sensing Magazine:
