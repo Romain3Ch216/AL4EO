@@ -89,7 +89,7 @@ class names = {Vegetation Buildings}
 ## How to start
   
 Launch the backend in your AL4EO conda virtual environment with the following command line:
-  `python -m server` 
+  ```python -m server```
   
 <p align="center">
   <img alt="demo" src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/demo.png" width="800">
