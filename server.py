@@ -3,7 +3,6 @@ import pickle
 import os
 import numpy as np
 from learning.query import load_query
-from path import get_path
 from data.data import Dataset
 from learning.session import ActiveLearningFramework
 

@@ -46,7 +46,7 @@ class InteractLearn(core_plugin):
             parent=self.iface.mainWindow()
             )
         self.add_action(
-            ':/icons/S-icon.pdf',
+            ':/icons/S-icon.png',
             text=self.tr(u'Subset'),
             callback=self.selectSubset,
             parent=self.iface.mainWindow()

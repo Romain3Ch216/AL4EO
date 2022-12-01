@@ -75,9 +75,7 @@ def formatAnnotationRaster(img_pth, gt_pth):
     correctTagNameIssue(gt_pth)
 
 def getClasseNameColor(gt_path):
-    print('getClasseNameColor')
     #get classes names and colors from header file
-
     src = gdal.Open(gt_path)
     src_tags = src.GetMetadata('ENVI')
     class_names = src_tags['class_names'].replace(' ', '').replace('{', '').replace('}', '').split(',')
@@ -87,7 +85,6 @@ def getClasseNameColor(gt_path):
 
 def updateClassNameColor(class_names, class_color, gt_pth):
     #update header file classes names and colors 
-    print('updateClassNameColor')
     class_names_string = '{'
     for i in range(len(class_names)-1):
         class_names_string += class_names[i] + ', '
@@ -121,7 +118,6 @@ def correctTagNameIssue(gt_pth):
 
 def createHistoryLayer(name, coordinates, gt_pth):
     #Create a Vector layer with points which are at the coordinates in the history
-    print('Create history')
     src = gdal.Open(gt_pth)
     crs = QgsCoordinateReferenceSystem()
     crs.createFromWkt(src.GetProjection())
