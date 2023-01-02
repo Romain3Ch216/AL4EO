@@ -14,7 +14,7 @@
 
 AL4EO/qgis-plugin is a <a href="https://www.qgis.org/fr/site/"> QGIS </a> plug-in to run Active Learning techniques on Earth observation data. <br/>  
 
-The goal of Active Learning is to interactively and iteratively build optimal training data sets for supervised learning. <br/>
+The goal of Active Learning is to interactively and iteratively build optimal training data sets for supervised learning. 
 For further details on Active Learning for remote sensing data, see our comparative review <a href="https://ieeexplore.ieee.org/document/9774342" target="_blank">here</a> for which we used AL4EO.
 
 If you use AL4EO as part of a published research project, please see the Reference section below to cite our paper.
