@@ -40,12 +40,6 @@ class InteractLearn(core_plugin):
             parent=self.iface.mainWindow()
             )
         self.add_action(
-            ':/icons/letter-a.png',
-            text=self.tr(u'Annotation'),
-            callback=self.runAnnotationDialog,
-            parent=self.iface.mainWindow()
-            )
-        self.add_action(
             ':/icons/S-icon.png',
             text=self.tr(u'Subset'),
             callback=self.selectSubset,
@@ -55,17 +49,6 @@ class InteractLearn(core_plugin):
         # will be set False in run()
         self.first_start = True
 
-    #run Annotation dockWidget for annot pixels
-    def runAnnotationDockWidget(self, history_path, annot_layer):
-        # Create the dockwidget (after translation) and keep reference
-        self.dockwidget = annotationDockWidget(self.iface)
-        # connect to provide cleanup on closing of dockwidget
-        self.dockwidget.closingPlugin.connect(self.onClosePlugin)
-        # show the dockwidget
-        # TODO: fix to allow choice of dock location
-        self.dockwidget.initSession(history_path, annot_layer)
-        self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
-        self.dockwidget.show()
 
     #Run annotationDialog to select history path and label layer
     def runAnnotationDialog(self):
@@ -127,18 +110,12 @@ class InteractLearn(core_plugin):
 
             #change opacity of layer label 
             self.layerLabel = self.dlg.layerLabel
-            classes = self.layerLabel.renderer().classes()
-            classes[0].color.setAlpha(0)
-            renderer = QgsPalettedRasterRenderer(self.layerLabel.dataProvider(), 1, classes)
-            renderer.setOpacity(0.7)
-
-            #reproject label layer to data layer size
-            formatAnnotationRaster(dataset_param['img_pth'], dataset_param['gt_pth'])
+            
             name = self.layerLabel.name()
-            QgsProject.instance().removeMapLayer(self.layerLabel.id())
-            self.layerLabel = self.iface.addRasterLayer(dataset_param['gt_pth'], name)
-            self.layerLabel.setRenderer(renderer) 
-            self.layerLabel.triggerRepaint()
+            # QgsProject.instance().removeMapLayer(self.layerLabel.id())
+            # self.layerLabel = self.iface.addRasterLayer(dataset_param['gt_pth'], name)
+            # self.layerLabel.setRenderer(renderer) 
+            # self.layerLabel.triggerRepaint()
             
             #communicate query config and params to serveur in QgsTask thread
             task = QgsTask.fromFunction(
@@ -151,15 +128,6 @@ class InteractLearn(core_plugin):
                 task
             )
 
-    #run when QgsTask is complete, run annotationDockWidget if query has reached the end
-    def _completed(self, exception, result=None):
-        if exception is None:
-            if result != None:
-                self.runAnnotationDockWidget(result, self.layerLabel)
-            else:
-                self.iface.messageBar().pushMessage("Can't run annotation because Query don't finish", level=Qgis.Warning)
-        else:
-            self.iface.messageBar().pushMessage(str(exception), level=Qgis.Warning)
 
     #QgsTask for sending config and param to serveur and receive history path   
     def send_and_recv_Serveur(self, task):

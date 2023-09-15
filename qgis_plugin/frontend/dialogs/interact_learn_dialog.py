@@ -2,7 +2,6 @@
 
 import os
 from .layers_dialog import LayersDialog
-from ..utils import getClasseNameColor
 from qgis.PyQt import QtWidgets, uic
 from qgis.core import QgsProject
 # from processing.gui.RectangleMapTool import RectangleMapTool
@@ -91,11 +90,6 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
         dataset_param = {}
         dataset_param['img_pth'] = self.layerData.dataProvider().dataSourceUri()
         dataset_param['gt_pth'] = self.layerLabel.dataProvider().dataSourceUri()
-
-        class_names, class_color = getClasseNameColor(self.layerLabel.dataProvider().dataSourceUri())
-
-        dataset_param['label_values'] = class_names
-        dataset_param['palette'] = class_color
 
         dataset_param['ignored_labels'] = [0]
         dataset_param['n_bands'] = self.layerData.bandCount()
