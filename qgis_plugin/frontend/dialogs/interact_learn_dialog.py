@@ -62,7 +62,7 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
 
     #Select label layer from LayersDialog
     def selectLabel(self):
-        sub_dlg = LayersDialog(1)
+        sub_dlg = LayersDialog(5)
         sub_dlg.show()
         result = sub_dlg.exec_()
         if result:

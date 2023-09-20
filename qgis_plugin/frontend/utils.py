@@ -42,10 +42,10 @@ def get_layers(type):
     layers = []
     for tree_layer in QgsProject.instance().layerTreeRoot().findLayers():
         layer = tree_layer.layer()
-        if layer.type() == QgsMapLayer.RasterLayer:
-            if (type == 0 or (type == 1 and tree_layer.layer().rasterType() in [0,1]) 
-            or (type == 2 and tree_layer.layer().rasterType() == 2)):
-                layers.append(layer)
+        if layer.type() == QgsMapLayer.RasterLayer or layer.type() == QgsMapLayer.VectorLayer:
+            # if (type == 0 or (type == 1 and tree_layer.layer().rasterType() in [0,1]) 
+            # or (type == 2 and tree_layer.layer().rasterType() == 2)):
+            layers.append(layer)
 
     layer_list = [i.name() for i in layers]
     count = {i: layer_list.count(i) for i in layer_list if layer_list.count(i) > 1}

@@ -18,8 +18,10 @@ from .utils import *
 
 from processing.gui.RectangleMapTool import RectangleMapTool
 
+from osgeo import gdal
 import socket
 import pickle
+import subprocess
 
 class InteractLearn(core_plugin):
     def __init__(self, iface):
@@ -84,10 +86,24 @@ class InteractLearn(core_plugin):
         # See if OK was pressed
         if result:
 
-            ymax = self.dlg.layerLabel.extent().yMaximum()
-            xmin = self.dlg.layerLabel.extent().xMinimum()
-            xsize = self.dlg.layerLabel.rasterUnitsPerPixelX()
-            ysize = self.dlg.layerLabel.rasterUnitsPerPixelY()
+            gt_path = self.dlg.layerLabel.dataProvider().dataSourceUri()
+            out_path = gt_path[:-3] + 'tif'
+            width = self.dlg.layerData.extent().xMaximum() - self.dlg.layerData.extent().xMinimum()
+            height = self.dlg.layerData.extent().yMaximum() - self.dlg.layerData.extent().yMinimum()
+            extent = self.dlg.layerData.extent()
+            extent = "%.17f %.17f %.17f %.17f" % (extent.xMinimum(), extent.yMinimum(), extent.xMaximum(), extent.yMaximum())
+            print(extent)
+            query = f"gdal_rasterize -a Material -ts {width} {height} -init 0.0 -te {extent} -ot UInt16 -of GTiff {gt_path} {out_path}" 
+            subprocess.call(query, shell=True)
+            gt_raster = gdal.Open(out_path, gdal.GA_ReadOnly)
+
+            geoTransform = gt_raster.GetGeoTransform()
+            xmin = geoTransform[0]
+            ymax = geoTransform[3]
+            xsize = gt_raster.RasterXSize
+            ysize = gt_raster.RasterYSize
+            xmax = xmin + geoTransform[1] * xsize
+            ymin = ymax + geoTransform[5] * ysize
 
             if self.rectangle is None:
                 bounding_box = None 
@@ -106,18 +122,19 @@ class InteractLearn(core_plugin):
             self.param = {'name': 'query', 'config' : config, 'dataset_param' : dataset_param}
 
             #set data layer RGB bands from dialog values
-            setLayerRGB(self.dlg.layerData, self.dlg.spinBox_R.value(), self.dlg.spinBox_G.value(), self.dlg.spinBox_B.value())
+            # setLayerRGB(self.dlg.layerData, self.dlg.spinBox_R.value(), self.dlg.spinBox_G.value(), self.dlg.spinBox_B.value())
 
             #change opacity of layer label 
-            self.layerLabel = self.dlg.layerLabel
+            # self.layerLabel = self.dlg.layerLabel
             
-            name = self.layerLabel.name()
+            # name = self.layerLabel.name()
             # QgsProject.instance().removeMapLayer(self.layerLabel.id())
             # self.layerLabel = self.iface.addRasterLayer(dataset_param['gt_pth'], name)
             # self.layerLabel.setRenderer(renderer) 
             # self.layerLabel.triggerRepaint()
             
             #communicate query config and params to serveur in QgsTask thread
+            """
             task = QgsTask.fromFunction(
                 "Ilearn Query",
                 self.send_and_recv_Serveur,
@@ -127,6 +144,7 @@ class InteractLearn(core_plugin):
             self.task = (
                 task
             )
+            """
 
 
     #QgsTask for sending config and param to serveur and receive history path   
