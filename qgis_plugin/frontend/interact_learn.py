@@ -95,6 +95,7 @@ class InteractLearn(core_plugin):
             print(extent)
             query = f"gdal_rasterize -a Material -ts {width} {height} -init 0.0 -te {extent} -ot UInt16 -of GTiff {gt_path} {out_path}" 
             subprocess.call(query, shell=True)
+            self.dlg.gt_raster_path = out_path
             gt_raster = gdal.Open(out_path, gdal.GA_ReadOnly)
 
             geoTransform = gt_raster.GetGeoTransform()
@@ -134,7 +135,7 @@ class InteractLearn(core_plugin):
             # self.layerLabel.triggerRepaint()
             
             #communicate query config and params to serveur in QgsTask thread
-            """
+            
             task = QgsTask.fromFunction(
                 "Ilearn Query",
                 self.send_and_recv_Serveur,
@@ -144,7 +145,7 @@ class InteractLearn(core_plugin):
             self.task = (
                 task
             )
-            """
+            
 
 
     #QgsTask for sending config and param to serveur and receive history path   

@@ -89,7 +89,7 @@ class InteractLearnDialog(QtWidgets.QDialog, FORM_CLASS):
 
         dataset_param = {}
         dataset_param['img_pth'] = self.layerData.dataProvider().dataSourceUri()
-        dataset_param['gt_pth'] = self.layerLabel.dataProvider().dataSourceUri()
+        dataset_param['gt_pth'] = self.gt_raster_path
 
         dataset_param['ignored_labels'] = [0]
         dataset_param['n_bands'] = self.layerData.bandCount()
