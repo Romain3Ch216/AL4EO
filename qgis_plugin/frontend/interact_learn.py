@@ -42,12 +42,12 @@ class InteractLearn(core_plugin):
             callback=self.runIlearnDialog,
             parent=self.iface.mainWindow()
             )
-        self.add_action(
-            ':/icons/S-icon.png',
-            text=self.tr(u'Subset'),
-            callback=self.selectSubset,
-            parent=self.iface.mainWindow()
-            )
+        # self.add_action(
+        #     ':/icons/S-icon.png',
+        #     text=self.tr(u'Subset'),
+        #     callback=self.selectSubset,
+        #     parent=self.iface.mainWindow()
+        #     )
 
         # will be set False in run()
         self.first_start = True
@@ -62,12 +62,12 @@ class InteractLearn(core_plugin):
         self.dockwidget.initSession(history_path, vector_layer, raster_path)
         self.dockwidget.show()
 
-    def selectSubset(self):
-        if self.rectangle is not None:
-            self.rectangle.reset()
-        else:
-            self.rectangle = RectangleMapTool(self.iface.mapCanvas())
-        self.iface.mapCanvas().setMapTool(self.rectangle)
+    # def selectSubset(self):
+    #     if self.rectangle is not None:
+    #         self.rectangle.reset()
+    #     else:
+    #         self.rectangle = RectangleMapTool(self.iface.mapCanvas())
+    #     self.iface.mapCanvas().setMapTool(self.rectangle)
 
     
     #run interactive learning dialog for selecting data layer, label layer and query config
@@ -91,7 +91,6 @@ class InteractLearn(core_plugin):
             height = self.dlg.layerData.extent().yMaximum() - self.dlg.layerData.extent().yMinimum()
             extent = self.dlg.layerData.extent()
             extent = "%.17f %.17f %.17f %.17f" % (extent.xMinimum(), extent.yMinimum(), extent.xMaximum(), extent.yMaximum())
-            print(extent)
             query = f"gdal_rasterize -a Material -ts {width} {height} -init 0.0 -te {extent} -ot UInt16 -of GTiff {gt_path} {out_path}" 
             subprocess.call(query, shell=True)
             self.dlg.gt_raster_path = out_path
@@ -122,20 +121,6 @@ class InteractLearn(core_plugin):
             config['bounding_box'] = bounding_box
             dataset_param['label_values'] = label_values
             self.param = {'name': 'query', 'config' : config, 'dataset_param' : dataset_param}
-
-            #set data layer RGB bands from dialog values
-            # setLayerRGB(self.dlg.layerData, self.dlg.spinBox_R.value(), self.dlg.spinBox_G.value(), self.dlg.spinBox_B.value())
-
-            #change opacity of layer label 
-            # self.layerLabel = self.dlg.layerLabel
-            
-            # name = self.layerLabel.name()
-            # QgsProject.instance().removeMapLayer(self.layerLabel.id())
-            # self.layerLabel = self.iface.addRasterLayer(dataset_param['gt_pth'], name)
-            # self.layerLabel.setRenderer(renderer) 
-            # self.layerLabel.triggerRepaint()
-            
-            #communicate query config and params to serveur in QgsTask thread
             
             task = QgsTask.fromFunction(
                 "Ilearn Query",

@@ -50,26 +50,14 @@ class annotationDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.config = None
         self.annot_layer = None
         self.setupUi(self)
-        # self.pushButton_add.clicked.connect(self.addClasse)
 
 
     #init dockWidget requirement 
     def initSession(self, history_path, vector_layer, raster_path):
-
-        print('name')
-        self.label_layerName.setText(self.vector_layer.name())
         
         #load history
-        print('Load history')
         with open(history_path, 'rb') as f:
             self.history, _, self.config = pickle.load(f)
 
         #create history layer 
-        print(os.path.basename(history_path)[:-4])
-        print(raster_path)
         createHistoryLayer(os.path.basename(history_path)[:-4], self.history['coordinates'], raster_path)
-
-
-    def closeEvent(self, event):
-        self.closingPlugin.emit()
-        event.accept()

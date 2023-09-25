@@ -74,7 +74,6 @@ def setLayerRGB(layer, R, G, B):
 
 def createHistoryLayer(name, coordinates, gt_pth):
     #Create a Vector layer with points which are at the coordinates in the history
-    print(gt_path)
     src = gdal.Open(gt_pth)
     crs = QgsCoordinateReferenceSystem()
     crs.createFromWkt(src.GetProjection())
@@ -84,7 +83,7 @@ def createHistoryLayer(name, coordinates, gt_pth):
     pr = vl.dataProvider()
     # Enter editing mode
     vl.startEditing()
-  
+    
     for point in coordinates:
         point = point.astype(np.float64)
         pointXY = gdal.ApplyGeoTransform(transform, point[1]+0.5, point[0]+0.5)
