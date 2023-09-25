@@ -64,18 +64,6 @@ class InteractLearn(core_plugin):
         self.dockwidget.initSession(history_path, annot_layer)
         self.dockwidget.show()
 
-
-    #Run annotationDialog to select history path and label layer
-    def runAnnotationDialog(self):
-        dlg = AnnotSelectDialog()
-        dlg.show()
-        result = dlg.exec_()
-
-        if result:
-
-            self.runAnnotationDockWidget(dlg.history_pth, dlg.layerLabel)
-
-
     def selectSubset(self):
         if self.rectangle is not None:
             self.rectangle.reset()

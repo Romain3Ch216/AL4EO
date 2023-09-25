@@ -49,7 +49,8 @@ class annotationDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.history = None
         self.config = None
         self.annot_layer = None
-        # self.setupUi(self)
+        self.setupUi(self)
+        print('Iniiiiit')
         # self.pushButton_add.clicked.connect(self.addClasse)
 
 
