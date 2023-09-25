@@ -55,7 +55,7 @@ class TrainGt(Subset):
 class Dataset:
     """ Class for an hyperspectral / multispectral dataset """
 
-    def __init__(self, hyperparams, img_pth, gt_pth, palette, label_values, ignored_labels, sensor=None, n_bands=None, img_shape=None, rgb_bands=None):
+    def __init__(self, hyperparams, img_pth, gt_pth, label_values, ignored_labels, palette=None, sensor=None, n_bands=None, img_shape=None, rgb_bands=None):
         """
         Args:
             hyperparams: dict, hyperparameters

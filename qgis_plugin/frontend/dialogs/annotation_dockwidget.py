@@ -21,3 +21,54 @@
  *                                                                         *
  ***************************************************************************/
 """
+
+import pickle
+import os
+from qgis.PyQt import QtWidgets, uic
+from qgis.PyQt.QtCore import pyqtSignal
+from qgis.core import QgsPalettedRasterRenderer
+from ..utils import createHistoryLayer, getClasseNameColor, updateClassNameColor
+from ..mapTool import MapTool
+
+FORM_CLASS, _ = uic.loadUiType(os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), 'ui/annotation_dockwidget.ui'))
+
+class annotationDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
+
+    closingPlugin = pyqtSignal()
+
+    def __init__(self, iface, parent=None):
+        """Constructor."""
+        super(annotationDockWidget, self).__init__(parent)
+        # Set up the user interface from Designer.
+        # After setupUI you can access any designer object by doing
+        # self.<objectname>, and you can use autoconnect slots - see
+        # http://doc.qt.io/qt-5/designer-using-a-ui-file.html
+        # #widgets-and-dialogs-with-auto-connect
+        self.iface = iface
+        self.history = None
+        self.config = None
+        self.annot_layer = None
+        # self.setupUi(self)
+        # self.pushButton_add.clicked.connect(self.addClasse)
+
+
+    #init dockWidget requirement 
+    def initSession(self, history_path, annot_layer):
+    
+        self.annot_layer = annot_layer
+
+        self.label_layerName.setText(self.annot_layer.name())
+        
+        #load history
+        with open(history_path, 'rb') as f:
+            self.history, _, self.config = pickle.load(f)
+
+        #create history layer 
+        createHistoryLayer(os.path.basename(history_path)[:-4], self.history['coordinates'], self.annot_layer.dataProvider().dataSourceUri())
+        print(self.annot_layer.dataProvider().dataSourceUri())
+
+
+    def closeEvent(self, event):
+        self.closingPlugin.emit()
+        event.accept()

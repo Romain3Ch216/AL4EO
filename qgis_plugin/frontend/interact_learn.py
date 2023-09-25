@@ -23,6 +23,7 @@ import socket
 import pickle
 import subprocess
 
+
 class InteractLearn(core_plugin):
     def __init__(self, iface):
         super().__init__(iface)
@@ -97,6 +98,7 @@ class InteractLearn(core_plugin):
             subprocess.call(query, shell=True)
             self.dlg.gt_raster_path = out_path
             gt_raster = gdal.Open(out_path, gdal.GA_ReadOnly)
+            label_values = np.unique(gt_raster.ReadAsArray())
 
             geoTransform = gt_raster.GetGeoTransform()
             xmin = geoTransform[0]
@@ -120,6 +122,7 @@ class InteractLearn(core_plugin):
             #get config and dataset parameters from dialog
             config, dataset_param = self.dlg.get_config()
             config['bounding_box'] = bounding_box
+            dataset_param['label_values'] = label_values
             self.param = {'name': 'query', 'config' : config, 'dataset_param' : dataset_param}
 
             #set data layer RGB bands from dialog values
