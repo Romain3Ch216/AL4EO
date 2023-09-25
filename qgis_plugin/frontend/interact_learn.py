@@ -52,16 +52,14 @@ class InteractLearn(core_plugin):
         # will be set False in run()
         self.first_start = True
 
-    def runAnnotationDockWidget(self, history_path, annot_layer):
+    def runAnnotationDockWidget(self, history_path, vector_layer, raster_path):
         # Create the dockwidget (after translation) and keep reference
-        print(history_path)
-        print(annot_layer)
         self.dockwidget = annotationDockWidget(self.iface)
         # connect to provide cleanup on closing of dockwidget
         self.dockwidget.closingPlugin.connect(self.onClosePlugin)
         # show the dockwidget
         # TODO: fix to allow choice of dock location
-        self.dockwidget.initSession(history_path, annot_layer)
+        self.dockwidget.initSession(history_path, vector_layer, raster_path)
         self.dockwidget.show()
 
     def selectSubset(self):
@@ -156,7 +154,7 @@ class InteractLearn(core_plugin):
             print("Exception is None")
             if result != None:
                 print("Result is not None")
-                self.runAnnotationDockWidget(result, self.dlg.layerLabel)
+                self.runAnnotationDockWidget(result, self.dlg.layerLabel, self.dlg.gt_raster_path)
             else:
                 print("Result is None")
                 self.iface.messageBar().pushMessage("Can't run annotation because Query don't finish", level=Qgis.Warning)

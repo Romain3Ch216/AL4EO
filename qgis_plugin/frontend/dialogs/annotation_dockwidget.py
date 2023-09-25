@@ -27,7 +27,7 @@ import os
 from qgis.PyQt import QtWidgets, uic
 from qgis.PyQt.QtCore import pyqtSignal
 from qgis.core import QgsPalettedRasterRenderer
-from ..utils import createHistoryLayer, getClasseNameColor, updateClassNameColor
+from ..utils import createHistoryLayer
 from ..mapTool import MapTool
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
@@ -50,24 +50,24 @@ class annotationDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.config = None
         self.annot_layer = None
         self.setupUi(self)
-        print('Iniiiiit')
         # self.pushButton_add.clicked.connect(self.addClasse)
 
 
     #init dockWidget requirement 
-    def initSession(self, history_path, annot_layer):
-    
-        self.annot_layer = annot_layer
+    def initSession(self, history_path, vector_layer, raster_path):
 
-        self.label_layerName.setText(self.annot_layer.name())
+        print('name')
+        self.label_layerName.setText(self.vector_layer.name())
         
         #load history
+        print('Load history')
         with open(history_path, 'rb') as f:
             self.history, _, self.config = pickle.load(f)
 
         #create history layer 
-        createHistoryLayer(os.path.basename(history_path)[:-4], self.history['coordinates'], self.annot_layer.dataProvider().dataSourceUri())
-        print(self.annot_layer.dataProvider().dataSourceUri())
+        print(os.path.basename(history_path)[:-4])
+        print(raster_path)
+        createHistoryLayer(os.path.basename(history_path)[:-4], self.history['coordinates'], raster_path)
 
 
     def closeEvent(self, event):
