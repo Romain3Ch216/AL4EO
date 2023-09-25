@@ -147,6 +147,15 @@ class InteractLearn(core_plugin):
             )
             
 
+    def _completed(self, exception, result=None):
+        if exception is None:
+            if result != None:
+                self.runAnnotationDockWidget(result, self.layerLabel)
+            else:
+                self.iface.messageBar().pushMessage("Can't run annotation because Query don't finish", level=Qgis.Warning)
+        else:
+            self.iface.messageBar().pushMessage(str(exception), level=Qgis.Warning)
+            
 
     #QgsTask for sending config and param to serveur and receive history path   
     def send_and_recv_Serveur(self, task):
