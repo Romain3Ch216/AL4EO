@@ -52,6 +52,18 @@ class InteractLearn(core_plugin):
         # will be set False in run()
         self.first_start = True
 
+    def runAnnotationDockWidget(self, history_path, annot_layer):
+        # Create the dockwidget (after translation) and keep reference
+        print(history_path)
+        print(annot_layer)
+        self.dockwidget = annotationDockWidget(self.iface)
+        # connect to provide cleanup on closing of dockwidget
+        self.dockwidget.closingPlugin.connect(self.onClosePlugin)
+        # show the dockwidget
+        # TODO: fix to allow choice of dock location
+        self.dockwidget.initSession(history_path, annot_layer)
+        self.dockwidget.show()
+
 
     #Run annotationDialog to select history path and label layer
     def runAnnotationDialog(self):
@@ -151,12 +163,17 @@ class InteractLearn(core_plugin):
             
 
     def _completed(self, exception, result=None):
+        print("Completed")
         if exception is None:
+            print("Exception is None")
             if result != None:
-                self.runAnnotationDockWidget(result, self.layerLabel)
+                print("Result is not None")
+                self.runAnnotationDockWidget(result, self.dlg.layerLabel)
             else:
+                print("Result is None")
                 self.iface.messageBar().pushMessage("Can't run annotation because Query don't finish", level=Qgis.Warning)
         else:
+            print("Exception")
             self.iface.messageBar().pushMessage(str(exception), level=Qgis.Warning)
             
 
