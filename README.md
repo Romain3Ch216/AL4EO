@@ -56,7 +56,7 @@ Active Learning techniques iteratively query pixels as follows:
 <img src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/al_algo.png" alt="active_learning_flowchart" width="700" />
 
 At this time, the qgis plug-in handles three acquisition functions:
- * <a href="https://www.jmlr.org/papers/volume6/luo05a/luo05a.pdf">Breaking Tie<a/>, an inter-class uncertainty heuristic,
+ * <a href="https://www.jmlr.org/papers/volume6/luo05a/luo05a.pdf">Breaking Ties<a/>, an inter-class uncertainty heuristic,
  * <a href="https://arxiv.org/abs/1112.5745">BALD<a/>, an epistemic uncertainty heuristic,
  * <a href="https://arxiv.org/abs/1708.00489">Core-Set<a/>, a representativeness heuristic.
 
@@ -74,20 +74,13 @@ AL4EO plug-in handles data in the [ENVI](https://www.l3harrisgeospatial.com/docs
 Data
 ├── image.tiff
 ├── image.hdr
-├── labels.tiff
-├── labels.hdr
+├── ground_truth.shp
 ```
 
 The `image.tiff` file is the image to annotate. Its `image.hdr` header should contain a `bbl` attribute that lists the bad band multiplier values of each band in the image, typically 0 for bad bands and 1 for good bands.
+The `ground_truth.shp` file is the initial ground truth, saved as a shapefile with a "Material" field.
 
-The `labels.tiff` file is the ground truth, encoded in 8-bits, that contains the initial annotations before the first Active Learning step.
-Its `labels.hdr` header should contain a `classes`, a `class lookup` and a `class names` attributes that specify the number of classes, the RGB colors of the classes and the names of the classes, respectively. For instance:
-
-```
-classes = 2
-class lookup = {255 0 0 0 255 0}
-class names = {Vegetation Buildings}
-```
+Examples of files are provided in the [Demo folder](https://github.com/Romain3Ch216/AL4EO/tree/qgis-plugin/Demo).
 
 ## How to start
   
@@ -95,22 +88,17 @@ Launch the backend in your AL4EO conda virtual environment with the following co
 ```python -m server```
   
 <p align="center">
-  <img alt="demo" src="https://github.com/Romain3Ch216/AL4EO/blob/qgis-plugin/imgs/demo.png" width="800">
+  <img alt="demo" src="https://github.com/Romain3Ch216/AL4EO/blob/vector/Demo/demo.GIF" width="800">
 </p>
 
 
-In QGIS, 
-  * the `Q` button within block 1 in the overhead picture opens a window where you can select:<br>
-     * the layers on which you run the query, the acquisition function, various hyperparameters and whether to use the preprocessing step introduced <a href="https://www.int-arch-photogramm-remote-sens-spatial-inf-sci.net/XLIII-B3-2022/435/2022/" target="_blank">here</a>.
-  * the red rectangle within block 1 in the overhead picture allows to select a specific geographic zone. Only pixels from this zone will be queried.
-  * Once the query is completed (see progress in the terminal), a history layer pops up (see the top of block 2 in the overhead picture). Red points indicate pixels to be labeled.
-  * Block 3 pops up after the query is completed: 
-    * Select a class with the dropdown menu "A" (the "Untitled" class allows to remove wrong labels),
-    * Select a selection option with the dropdown menu "B": 
-       * select pixels one by one,
-       * or select polygons (one click saves one edge while double click closes the polygon),
-  * **click** on the "Annotation" button "C" below the dropdown menus to start labeling.
-  * To add a class, fill the empty box "D" with the class name, choose a color with the menu "E" and click on the button "F" to confirm
+In QGIS, the `Q` button opens a window where you can select:<br>
+* the layers on which you run the query,
+* the acquisition function,
+* various hyperparameters,
+* preprocessing options (as introduced in <a href="https://www.int-arch-photogramm-remote-sens-spatial-inf-sci.net/XLIII-B3-2022/435/2022/" target="_blank">here</a>).
+
+Once the query is completed (see progress in the terminal), a history layer pops up that contains the selected pixels, shown as red points.
   
 ## Reference
 

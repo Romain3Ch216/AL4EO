@@ -27,7 +27,7 @@ import os
 from qgis.PyQt import QtWidgets, uic
 from qgis.PyQt.QtCore import pyqtSignal
 from qgis.core import QgsPalettedRasterRenderer
-from ..utils import createHistoryLayer, getClasseNameColor, updateClassNameColor
+from ..utils import createHistoryLayer
 from ..mapTool import MapTool
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
@@ -49,66 +49,15 @@ class annotationDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.history = None
         self.config = None
         self.annot_layer = None
-        self.mapTool = None
-        self.class_names = None
-        self.class_color = None
         self.setupUi(self)
-        self.pushButton_add.clicked.connect(self.addClasse)
 
-    #adding classe to comboBox, update image data header with this classe and add classe and color to layer palette
-    def addClasse(self):
-        new_class_name = self.lineEdit.text()
-        new_class_color = self.mColorButton.color()
-        new_value = len(self.class_names)
-        self.class_names.append(new_class_name)
-        self.class_color.append((new_class_color.red(), new_class_color.green(), new_class_color.blue()))
-        updateClassNameColor(self.class_names, self.class_color, self.annot_layer.dataProvider().dataSourceUri())
-        self.comboBox_classe.addItem(new_class_name, userData=new_value)
-
-        rclasses = self.annot_layer.renderer().classes()
-        rclasses.append(QgsPalettedRasterRenderer.Class(new_value, new_class_color, new_class_name))
-        self.annot_layer.setRenderer(QgsPalettedRasterRenderer(self.annot_layer.dataProvider(), 1, rclasses))
-
-    def comboBoxChanged(self):
-        #when comboBox selection change, update MapTool selected classe and color indicator
-        self.mapTool.classeSelected = int(self.comboBox_classe.currentData())
-        self.mapTool.annotation_option = self.comboBox_annotation_option.currentText()
-
-        index = self.comboBox_classe.currentIndex()
-        color = self.class_color[index]
-        self.toolButton_color.setStyleSheet("background:rgb({},{},{});".format(color[0], color[1], color[2]))
 
     #init dockWidget requirement 
-    def initSession(self, history_path, annot_layer):
-    
-        self.annot_layer = annot_layer
-
-        self.label_layerName.setText(self.annot_layer.name())
+    def initSession(self, history_path, vector_layer, raster_path):
         
         #load history
         with open(history_path, 'rb') as f:
             self.history, _, self.config = pickle.load(f)
 
         #create history layer 
-        createHistoryLayer(os.path.basename(history_path)[:-4], self.history['coordinates'], self.annot_layer.dataProvider().dataSourceUri())
-
-        #get layer classe and classe color
-        self.class_names, self.class_color = getClasseNameColor(self.annot_layer.dataProvider().dataSourceUri())
-        
-        for i, names in enumerate(self.class_names):
-            self.comboBox_classe.addItem(names, userData=i)
-
-        #create MapTool for annotation
-        self.mapTool = MapTool(self.iface.mapCanvas(), self.annot_layer, int(self.comboBox_classe.currentData()))
-        self.toolButton_annot.clicked.connect(self.activateMapTool)
-        
-        self.comboBox_classe.currentIndexChanged.connect(self.comboBoxChanged)
-        self.comboBox_annotation_option.currentIndexChanged.connect(self.comboBoxChanged)
-        self.comboBoxChanged()
-
-    def activateMapTool(self):
-        self.iface.mapCanvas().setMapTool(self.mapTool)
-
-    def closeEvent(self, event):
-        self.closingPlugin.emit()
-        event.accept()
+        createHistoryLayer(os.path.basename(history_path)[:-4], self.history['coordinates'], raster_path)

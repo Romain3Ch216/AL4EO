@@ -42,10 +42,10 @@ def get_layers(type):
     layers = []
     for tree_layer in QgsProject.instance().layerTreeRoot().findLayers():
         layer = tree_layer.layer()
-        if layer.type() == QgsMapLayer.RasterLayer:
-            if (type == 0 or (type == 1 and tree_layer.layer().rasterType() in [0,1]) 
-            or (type == 2 and tree_layer.layer().rasterType() == 2)):
-                layers.append(layer)
+        if layer.type() == QgsMapLayer.RasterLayer or layer.type() == QgsMapLayer.VectorLayer:
+            # if (type == 0 or (type == 1 and tree_layer.layer().rasterType() in [0,1]) 
+            # or (type == 2 and tree_layer.layer().rasterType() == 2)):
+            layers.append(layer)
 
     layer_list = [i.name() for i in layers]
     count = {i: layer_list.count(i) for i in layer_list if layer_list.count(i) > 1}
@@ -71,50 +71,6 @@ def setLayerRGB(layer, R, G, B):
     layer.setDefaultContrastEnhancement()
     layer.triggerRepaint()
 
-def formatAnnotationRaster(img_pth, gt_pth):
-    correctTagNameIssue(gt_pth)
-
-def getClasseNameColor(gt_path):
-    #get classes names and colors from header file
-    src = gdal.Open(gt_path)
-    src_tags = src.GetMetadata('ENVI')
-    class_names = src_tags['class_names'].replace(' ', '').replace('{', '').replace('}', '').split(',')
-    class_lookup = src_tags['class_lookup'].replace(' ', '').replace('{', '').replace('}', '').split(',')
-    class_color = [(int(class_lookup[i]), int(class_lookup[i+1]), int(class_lookup[i+2])) for i in range(0, len(class_lookup), 3)]
-    return class_names, class_color
-
-def updateClassNameColor(class_names, class_color, gt_pth):
-    #update header file classes names and colors 
-    class_names_string = '{'
-    for i in range(len(class_names)-1):
-        class_names_string += class_names[i] + ', '
-    class_names_string += class_names[len(class_names)-1] + '}'
-    class_lookup_string = str(class_color).replace('[', '{').replace(']', '}').replace('(','').replace(')','')
-
-    src = gdal.Open(gt_pth, gdal.gdalconst.GA_Update)
-    meta_data = src.GetMetadata('ENVI')
-    del meta_data['classes']
-    del meta_data['class_lookup']
-    del meta_data['class_names']
-
-    meta_data['classes'] = len(class_names)
-    meta_data['class_lookup'] = class_lookup_string
-    meta_data['class_name'] = class_names_string
-    src.SetMetadata(meta_data, 'ENVI')
-    src.FlushCache()
-    src = gdal.Open(gt_pth)
-    correctTagNameIssue(gt_pth)
-
-def correctTagNameIssue(gt_pth):
-    """Change the tag 'class name' to 'class names' 
-    because rasterio write 'class name', but QGIS reconize only 'class names' tag"""
-    gt_hdr_pth = gt_pth.split('.')[0]+'.hdr' #gt_pth[:-4] + "hdr"
-    file_content = ""
-    with open(gt_hdr_pth, "r") as f:
-        file_content = f.read()
-    file_content = file_content.replace("class name =","class names =")
-    with open(gt_hdr_pth, "w") as f:
-        f.write(file_content)
 
 def createHistoryLayer(name, coordinates, gt_pth):
     #Create a Vector layer with points which are at the coordinates in the history
@@ -127,7 +83,7 @@ def createHistoryLayer(name, coordinates, gt_pth):
     pr = vl.dataProvider()
     # Enter editing mode
     vl.startEditing()
-  
+    
     for point in coordinates:
         point = point.astype(np.float64)
         pointXY = gdal.ApplyGeoTransform(transform, point[1]+0.5, point[0]+0.5)
