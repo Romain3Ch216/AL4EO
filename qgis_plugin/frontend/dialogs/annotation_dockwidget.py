@@ -54,7 +54,6 @@ class annotationDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
 
     #init dockWidget requirement 
     def initSession(self, history_path, vector_layer, raster_path):
-        
         #load history
         with open(history_path, 'rb') as f:
             self.history, _, self.config = pickle.load(f)

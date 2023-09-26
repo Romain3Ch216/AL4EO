@@ -134,17 +134,12 @@ class InteractLearn(core_plugin):
             
 
     def _completed(self, exception, result=None):
-        print("Completed")
         if exception is None:
-            print("Exception is None")
             if result != None:
-                print("Result is not None")
                 self.runAnnotationDockWidget(result, self.dlg.layerLabel, self.dlg.gt_raster_path)
             else:
-                print("Result is None")
                 self.iface.messageBar().pushMessage("Can't run annotation because Query don't finish", level=Qgis.Warning)
         else:
-            print("Exception")
             self.iface.messageBar().pushMessage(str(exception), level=Qgis.Warning)
             
 

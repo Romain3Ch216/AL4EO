@@ -118,6 +118,8 @@ class ActiveLearningFramework:
             del self.config['scheduler']
         if 'weights' in self.config:
             del self.config['weights']
+        if 'optimizer' in self.config:
+            del self.config['optimizer']
         if 'step' in self.config:
             path = os.path.join(self.res_dir, 'history_{}_step_{}.pkl'.format(self.config['timestamp'], self.config['step']))
             pkl.dump((self.history, self.classes, self.config), open(path, 'wb'))

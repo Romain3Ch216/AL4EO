@@ -88,7 +88,6 @@ if __name__ == '__main__':
                 #perform active learning step
                 model, query, config = load_query(config, dataset)
                 AL = ActiveLearningFramework(dataset, model, query, config)
-                print(config['bounding_box'])
                 AL.step(config['bounding_box'])
                 path = AL.save() 
 

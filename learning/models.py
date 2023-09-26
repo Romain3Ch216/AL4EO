@@ -1254,7 +1254,7 @@ class BayesianModelWrapper:
         collate_fn = None
         self.model.train()
         history = []
-        train_data_loader, val_data_loader = dataset.load_data(dataset.train_gt)
+        train_data_loader, val_data_loader = dataset.load_data(dataset.train_gt, hyperparams['batch_size'])
         collate_fn = collate_fn or default_collate
         for epoch in range(n_epochs):
             for data, target, _ in train_data_loader:
