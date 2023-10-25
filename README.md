@@ -33,7 +33,7 @@ To plot pixels spectra, we strongly recommend to install the [QGIS Temporal/Spec
 
 ### Python dependencies 
 
-AL4EO is compatible with Python 3.6+ and PyTorch 1.10.0+.
+AL4EO is compatible with Python >= 3.7 and <=3.10 and PyTorch 1.10.0+.
 
 The easiest way to install the backend code is to create a AL4EO [conda virtual environment](https://docs.python.org/3/tutorial/venv.html) and to install dependencies using:
 
