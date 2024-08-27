@@ -87,8 +87,8 @@ class InteractLearn(core_plugin):
 
             gt_path = self.dlg.layerLabel.dataProvider().dataSourceUri()
             out_path = gt_path[:-3] + 'tif'
-            width = self.dlg.layerData.extent().xMaximum() - self.dlg.layerData.extent().xMinimum()
-            height = self.dlg.layerData.extent().yMaximum() - self.dlg.layerData.extent().yMinimum()
+            width = self.dlg.layerData.width()
+            height = self.dlg.layerData.height()
             extent = self.dlg.layerData.extent()
             extent = "%.17f %.17f %.17f %.17f" % (extent.xMinimum(), extent.yMinimum(), extent.xMaximum(), extent.yMaximum())
             query = f"gdal_rasterize -a Material -ts {width} {height} -init 0.0 -te {extent} -ot UInt16 -of GTiff {gt_path} {out_path}" 
